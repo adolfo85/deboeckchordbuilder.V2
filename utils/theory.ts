@@ -48,7 +48,7 @@ export const calculateInterval = (rootAbsolute: number, targetAbsolute: number, 
   let name = "";
   
   switch (semitones) {
-    case 0: name = "F"; break; // Changed from R to F
+    case 0: name = "F"; break; // Fundamental
     case 1: name = "b9"; break; 
     case 2: name = isCompound ? "9" : "2"; break;
     case 3: name = "b3"; break; 
@@ -69,34 +69,129 @@ export const calculateInterval = (rootAbsolute: number, targetAbsolute: number, 
 
 export const getEnharmonicSuggestion = (root: NoteData, notes: NoteData[], useFlats: boolean): string | null => {
   if (notes.length < 2) return null;
-  return null; 
+  return null;
 };
 
+/**
+ * Advanced Chord Detection Logic
+ * Handles 9, 11, 13 extensions and alterations.
+ */
 export const detectChordName = (root: NoteData, notes: NoteData[], useFlats: boolean = false): string | null => {
-  if (notes.length < 2) return null;
+  if (notes.length < 1) return null;
+  if (notes.length === 1) return getNoteDisplay(root.note, useFlats);
   
-  const semitonesSet = new Set<number>();
+  const intervals = new Set<number>();
   notes.forEach(n => {
     let diff = (n.absoluteSemitone - root.absoluteSemitone) % 12;
     if (diff < 0) diff += 12;
-    if (diff !== 0) semitonesSet.add(diff);
+    if (diff !== 0) intervals.add(diff);
   });
   
-  const has = (interval: number) => semitonesSet.has(interval);
-  const hasMaj3 = has(4);
-  const hasMin3 = has(3);
-  const hasMin7 = has(10);
+  const has = (i: number) => intervals.has(i);
+
+  // Intervals
+  const hasb2 = has(1); 
+  const has2 = has(2);  
+  const hasb3 = has(3); 
+  const has3 = has(4);  
+  const has4 = has(5);  
+  const hasb5 = has(6); 
+  const has5 = has(7);  
+  const hasSharp5 = has(8); 
+  const has6 = has(9);  
+  const hasb7 = has(10); 
+  const has7 = has(11); 
 
   let rootName = getNoteDisplay(root.note, useFlats);
-  let quality = "";
-  
-  if (hasMaj3) {
-      quality = hasMin7 ? "7" : "Maj";
-  } else if (hasMin3) {
-      quality = hasMin7 ? "m7" : "m";
+  let quality = "";     
+  let extension = "";   
+  let alterations = ""; 
+
+  // Quality
+  let isMajor = has3;
+  let isMinor = hasb3 && !has3; 
+  if (has3 && hasb3) { isMajor = true; isMinor = false; } // Hendrix #9
+
+  let isDim = hasb3 && hasb5 && !has5;
+  let isAug = has3 && hasSharp5 && !has5;
+  let isSus4 = !has3 && !hasb3 && has4;
+  let isSus2 = !has3 && !hasb3 && has2;
+  let isPower = has5 && !has3 && !hasb3 && !has2 && !has4;
+
+  if (isPower) quality = "5";
+  else if (isAug) quality = "aug";
+  else if (isDim) {
+      if (has6) quality = "dim7"; 
+      else if (hasb7) quality = "m7b5";
+      else quality = "dim";
+  } else if (isMinor) quality = "m";
+  else if (isSus4) quality = "sus4";
+  else if (isSus2) quality = "sus2";
+  else quality = ""; // Major implied
+
+  // 7th
+  if (has7) {
+      if (quality === "m") extension = "Maj7"; 
+      else if (quality === "") extension = "Maj7"; 
+      else if (quality === "aug") extension = "Maj7"; 
+      else if (quality === "sus4") extension = "Maj7"; 
+  } else if (hasb7) {
+      if (quality === "m") extension = "7"; 
+      else if (quality === "") extension = "7"; 
+      else if (quality === "sus4") { quality = "7sus4"; } 
+      else if (quality === "aug") { quality = "+7"; } 
+  } else if (has6 && !isDim) {
+      extension = "6";
+      if (has2) extension = "6/9";
+  }
+
+  // 9th (Replaces 7)
+  if (has2 && !isSus2 && !extension.includes("6/9")) {
+      if (extension === "7") extension = "9";
+      else if (extension === "Maj7") extension = "Maj9";
+      else if (extension === "m7") extension = "m9";
+      else if (extension === "") extension = "add9"; 
+      else if (extension === "m") extension = "m(add9)";
+  }
+
+  // 11th 
+  if (has4 && !isSus4) {
+      if (extension === "9" || extension === "7") extension = "11";
+      else if (extension === "m9" || extension === "m7") extension = "m11";
+      else if (extension === "Maj9" || extension === "Maj7") extension = "Maj11";
+      else if (extension === "") extension = "add11";
+  }
+
+  // 13th
+  if (has6 && !isDim && !extension.includes("6")) {
+      if (extension.includes("7") || extension.includes("9") || extension.includes("11")) {
+          if (extension.includes("Maj")) extension = "Maj13";
+          else if (extension.includes("m")) extension = "m13";
+          else extension = "13"; 
+      }
+  }
+
+  // Alterations
+  if (hasb5 && !isDim && quality !== "m7b5") {
+      if (extension.includes("7") || extension.includes("9")) alterations += "#11";
+      else alterations += "b5";
+  }
+
+  if (hasSharp5 && !isAug) {
+      if (hasb7 && !extension.includes("13")) alterations += "#5"; 
   }
   
-  return `${rootName}${quality}`; 
+  if (hasb2) alterations += "b9";
+
+  if (hasb3 && has3 && hasb7) alterations += "#9";
+
+  if (hasSharp5 && quality !== "aug" && quality !== "+7") {
+      if (extension && !alterations.includes("#5")) alterations += "#5";
+  }
+
+  if (quality === "m" && extension.startsWith("m")) quality = "";
+
+  return `${rootName}${quality}${extension}${alterations}`;
 };
 
 export const getGenericChordName = (chordName: string): string => {

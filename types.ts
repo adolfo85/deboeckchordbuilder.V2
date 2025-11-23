@@ -62,7 +62,7 @@ export interface TuningDefinition {
 
 export interface GraphicObject {
   id: string;
-  type: 'square' | 'circle' | 'arrow';
+  type: 'square' | 'circle' | 'arrow' | 'text';
   x: number;
   y: number;
   width: number;
@@ -71,4 +71,8 @@ export interface GraphicObject {
   color: string;
   filled: boolean;
   opacity: number;
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: string;
 }

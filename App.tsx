@@ -3,11 +3,135 @@ import { Fretboard } from './components/Fretboard';
 import { ChordSnapshot } from './components/ChordSnapshot';
 import { NoteData, SavedChord, ChordStyle, GraphicObject } from './types';
 import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes } from './utils/theory';
-import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw } from 'lucide-react';
+import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info } from 'lucide-react';
 import { toPng } from 'html-to-image';
+
+// --- MANUAL COMPONENT ---
+const ManualModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col relative text-slate-300">
+      
+      {/* Modal Header */}
+      <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-950/50 rounded-t-2xl">
+        <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-600 rounded-lg text-white">
+                <Info size={24} />
+            </div>
+            <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">Manual de Usuario</h2>
+                <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider">DeBoeck ChordBuilder v.2</p>
+            </div>
+        </div>
+        <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white">
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Modal Content - Scrollable */}
+      <div className="flex-grow overflow-y-auto p-8 space-y-12">
+        
+        {/* SECTION 1: EDITOR */}
+        <section>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <Guitar className="text-indigo-500" /> 1. El Editor (Diapasón)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div className="space-y-3">
+                    <p><strong className="text-white">Añadir Notas:</strong> Haz clic en cualquier cuerda/traste para añadir una nota. Haz clic de nuevo para borrarla (si no es la fundamental).</p>
+                    <p><strong className="text-white">Fundamental (F):</strong> La nota roja marcada con "F" es la raíz. El sistema calcula los intervalos (3, 5, 7, 9...) basándose en ella.</p>
+                    <p><strong className="text-white">Definir Fundamental:</strong> Activa la herramienta <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-[10px]"><MousePointer2 size={10} className="mr-1"/> Definir Fundamental</span>. Luego haz clic en una nota existente para convertirla en raíz, o en una casilla vacía para crear una nueva raíz.</p>
+                </div>
+                <div className="space-y-3">
+                    <p><strong className="text-white">Enarmonía:</strong> Haz clic directamente sobre el círculo de una nota ya colocada para alternar entre Sostenido (#) y Bemol (b).</p>
+                    <p><strong className="text-white">Capturar:</strong> El botón "Capturar Diagrama" (debajo del diapasón) toma una "foto" del acorde actual y lo envía a la pestaña <strong>Documento</strong>.</p>
+                    <p><strong className="text-white">Audio:</strong> Usa el botón <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-[10px]"><Play size={10} className="mr-1"/> Play</span> para escuchar el acorde.</p>
+                </div>
+            </div>
+        </section>
+
+        {/* SECTION 2: DOCUMENT */}
+        <section>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <FileText className="text-indigo-500" /> 2. Documento (Hoja A4)
+            </h3>
+            <div className="space-y-4 text-sm">
+                <p>Aquí se organizan tus diagramas capturados para la impresión o exportación final.</p>
+                <ul className="list-disc pl-5 space-y-2 text-slate-400">
+                    <li><strong className="text-white">Arrastrar y Soltar:</strong> Puedes cambiar el orden de los acordes arrastrándolos con el ratón.</li>
+                    <li><strong className="text-white">Títulos Editables:</strong> Haz clic en "Hoja de Diagramas" o la fecha para escribir tu propio título.</li>
+                    <li><strong className="text-white">Nombres de Acorde:</strong> Haz clic sobre el nombre de un acorde (ej. "C7") para alternarlo con su nombre genérico (ej. "Ac. 7") y ocultar el número de traste (ideal para formas movibles).</li>
+                </ul>
+            </div>
+        </section>
+
+        {/* SECTION 3: STYLES */}
+        <section>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <Layers className="text-indigo-500" /> 3. Herramientas de Edición
+            </h3>
+            <p className="text-sm mb-4">La barra gris intermedia en el modo Documento tiene 3 pestañas:</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h4 className="font-bold text-white mb-2 flex gap-2"><Layers size={16}/> General</h4>
+                    <p className="text-xs text-slate-400">Aplica cambios de estilo (Forma, Color Fundamental, Color Intervalos, Tamaño) a <strong>TODOS</strong> los diagramas de la hoja simultáneamente.</p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h4 className="font-bold text-white mb-2 flex gap-2"><MousePointerClick size={16}/> Particular</h4>
+                    <p className="text-xs text-slate-400">Haz clic en un diagrama específico para seleccionarlo. Los cambios que hagas aquí solo afectarán a <strong>ESE</strong> diagrama, sobrescribiendo el estilo general.</p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h4 className="font-bold text-white mb-2 flex gap-2"><Shapes size={16}/> Gráficos</h4>
+                    <p className="text-xs text-slate-400">Herramientas de dibujo libre. Añade Cuadrados, Círculos, Flechas o Texto. Los objetos flotan por encima de los acordes.</p>
+                </div>
+            </div>
+        </section>
+
+        {/* SECTION 4: GRAPHICS */}
+        <section>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <Shapes className="text-indigo-500" /> 4. Edición de Gráficos y Texto
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div className="space-y-3">
+                    <p><strong className="text-white">Selección:</strong> Haz clic en un objeto gráfico para seleccionarlo. Aparecerán manejadores blancos.</p>
+                    <p><strong className="text-white">Redimensión:</strong> Arrastra los cuadrados blancos para cambiar Ancho y Alto. </p>
+                    <p><strong className="text-white">Flechas:</strong> Al cambiar el "Alto" se estira la flecha; al cambiar el "Ancho" se hace más gruesa. La punta no se deforma.</p>
+                </div>
+                <div className="space-y-3">
+                    <p><strong className="text-white">Rotación:</strong> Usa el deslizador de rotación en la barra de herramientas para girar cualquier objeto 360°.</p>
+                    <p><strong className="text-white">Texto:</strong> Al añadir texto, puedes cambiar la fuente (incluyendo <em>Opus Plain Chord Std</em> para cifrados), tamaño y negrita desde la barra de herramientas.</p>
+                    <p><strong className="text-white">Capas:</strong> Los gráficos siempre se muestran por encima de los diagramas para permitir anotaciones.</p>
+                </div>
+            </div>
+        </section>
+
+         {/* SECTION 5: EXPORT */}
+         <section>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <Printer className="text-indigo-500" /> 5. Exportación
+            </h3>
+            <p className="text-sm text-slate-400">
+                Usa el botón <strong>Exportar A4</strong> en la esquina superior derecha. Esto generará una imagen PNG de alta resolución de tu hoja actual, lista para imprimir o compartir.
+            </p>
+        </section>
+
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t border-slate-700 bg-slate-950/50 rounded-b-2xl flex justify-end">
+        <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">
+            Cerrar Manual
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 const App: React.FC = () => {
   const tuning = TUNINGS['standard'];
+
+  // STATE
+  const [showManual, setShowManual] = useState<boolean>(false); // Manual visibility state
 
   // EDITOR STATE
   const [selectedNotes, setSelectedNotes] = useState<NoteData[]>([]);
@@ -35,7 +159,7 @@ const App: React.FC = () => {
   const [globalStyle, setGlobalStyle] = useState<ChordStyle>({
       noteShape: 'circle',
       noteColor: 'default',
-      rootColor: '#000000', // Default Black Root
+      rootColor: '#000000', 
       noteSize: 1
   });
   
@@ -51,27 +175,61 @@ const App: React.FC = () => {
   const documentRef = useRef<HTMLDivElement>(null);
 
   // --- EDITOR HANDLERS ---
+  
   const handleToggleNote = useCallback((stringIndex: number, fret: number) => {
     const noteInfo = getNoteAtPosition(stringIndex, fret, 'standard');
-    const newNote: NoteData = { stringIndex, fretNumber: fret, note: noteInfo.note, absoluteSemitone: noteInfo.absolute, octave: noteInfo.octave, isRoot: false, accidental: useFlats ? 'b' : '#' };
-    setSelectedNotes(prev => {
-      const exists = prev.find(n => n.stringIndex === stringIndex && n.fretNumber === fret);
-      let nextState;
-      if (exists) {
-        nextState = prev.filter(n => n !== exists);
-        if (rootNote && exists.stringIndex === rootNote.stringIndex && exists.fretNumber === rootNote.fretNumber) setRootNote(null);
-      } else {
-        nextState = [...prev.filter(n => n.stringIndex !== stringIndex), newNote];
-      }
-      if (nextState.length === 1 && !rootNote && !setRootMode) setRootNote(nextState[0]);
-      else if (setRootMode && exists) { setRootNote(exists); setSetRootMode(false); } 
-      else if (setRootMode && !exists) { setRootNote(newNote); setSetRootMode(false); }
-      return nextState;
-    });
-  }, [rootNote, setRootMode, useFlats]);
+    const newNote: NoteData = { 
+        stringIndex, 
+        fretNumber: fret, 
+        note: noteInfo.note, 
+        absoluteSemitone: noteInfo.absolute, 
+        octave: noteInfo.octave, 
+        isRoot: false, 
+        accidental: useFlats ? 'b' : '#' 
+    };
+
+    if (setRootMode) {
+        const exists = selectedNotes.find(n => n.stringIndex === stringIndex && n.fretNumber === fret);
+        if (exists) {
+            setRootNote(exists);
+        } else {
+            const others = selectedNotes.filter(n => n.stringIndex !== stringIndex);
+            setSelectedNotes([...others, newNote]);
+            setRootNote(newNote);
+        }
+        setSetRootMode(false);
+        return;
+    }
+
+    const exists = selectedNotes.find(n => n.stringIndex === stringIndex && n.fretNumber === fret);
+    if (exists) {
+        const remaining = selectedNotes.filter(n => n !== exists);
+        setSelectedNotes(remaining);
+        if (rootNote && exists.stringIndex === rootNote.stringIndex && exists.fretNumber === rootNote.fretNumber) {
+            setRootNote(null);
+        }
+    } else {
+        const others = selectedNotes.filter(n => n.stringIndex !== stringIndex);
+        const nextNotes = [...others, newNote];
+        setSelectedNotes(nextNotes);
+        if (nextNotes.length === 1 && !rootNote) {
+            setRootNote(newNote);
+        }
+    }
+  }, [selectedNotes, rootNote, setSetRootMode, useFlats]);
 
   const handleNoteClick = (note: NoteData) => {
-      setSelectedNotes(prev => prev.map(n => n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber ? { ...n, accidental: n.accidental === 'b' ? '#' : 'b' } : n));
+      if (setRootMode) {
+          setRootNote(note);
+          setSetRootMode(false);
+          return;
+      }
+      setSelectedNotes(prev => prev.map(n => {
+          if (n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber) {
+              return { ...n, accidental: n.accidental === 'b' ? '#' : 'b' };
+          }
+          return n;
+      }));
   };
 
   const captureChord = () => {
@@ -95,14 +253,21 @@ const App: React.FC = () => {
       setSavedChords(prev => prev.map(c => c.id === selectedChordId ? { ...c, [key]: value } : c));
   };
 
-  const addGraphic = (type: 'square' | 'circle' | 'arrow') => {
-      const width = type === 'arrow' ? 40 : 60;
-      const height = type === 'arrow' ? 100 : 60;
+  const addGraphic = (type: 'square' | 'circle' | 'arrow' | 'text') => {
+      const width = type === 'arrow' ? 40 : (type === 'text' ? 120 : 60);
+      const height = type === 'arrow' ? 100 : (type === 'text' ? 40 : 60);
+      
       const newGraphic: GraphicObject = {
           id: Date.now().toString(), type,
           x: 50, y: 50, width, height,
           rotation: 0,
-          color: '#ef4444', filled: true, opacity: 0.8
+          color: type === 'text' ? '#000000' : '#ef4444', 
+          filled: true, 
+          opacity: type === 'text' ? 1 : 0.8,
+          text: type === 'text' ? 'Texto' : undefined,
+          fontSize: 24,
+          fontFamily: 'Sans',
+          fontWeight: 'normal'
       };
       setGraphics(prev => [...prev, newGraphic]);
       setSelectedGraphicId(newGraphic.id);
@@ -182,24 +347,30 @@ const App: React.FC = () => {
       let headLen = w * 0.8; 
       if (headLen > h * 0.6) headLen = h * 0.6;
       if (headLen < 10 && h > 20) headLen = 10;
-      
       const shaftWidth = w * 0.4; 
       const shaftLeft = (w - shaftWidth) / 2;
       const shaftRight = (w + shaftWidth) / 2;
       
       return (
         <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
-            <path 
-                d={`M ${w/2} 0 L ${w} ${headLen} L ${shaftRight} ${headLen} L ${shaftRight} ${h} L ${shaftLeft} ${h} L ${shaftLeft} ${headLen} L 0 ${headLen} Z`} 
-                fill={g.filled ? g.color : 'none'} stroke={g.color} strokeWidth={g.filled ? "0" : "2"} strokeLinejoin="round"
-            />
+            <path d={`M ${w/2} 0 L ${w} ${headLen} L ${shaftRight} ${headLen} L ${shaftRight} ${h} L ${shaftLeft} ${h} L ${shaftLeft} ${headLen} L 0 ${headLen} Z`} fill={g.filled ? g.color : 'none'} stroke={g.color} strokeWidth={g.filled ? "0" : "2"} strokeLinejoin="round"/>
         </svg>
       );
   };
 
+  const getFontFamily = (font: string | undefined) => {
+      if (font === 'Opus') return "'Opus Plain Chord Std', 'Times New Roman', serif";
+      if (font === 'Serif') return "serif";
+      if (font === 'Mono') return "monospace";
+      return "sans-serif";
+  }
+
   return (
     <div className="h-screen w-full flex flex-col bg-slate-950 text-white overflow-hidden relative font-sans">
       
+      {/* SHOW MANUAL MODAL IF STATE IS TRUE */}
+      {showManual && <ManualModal onClose={() => setShowManual(false)} />}
+
       {/* HEADER */}
       <div className="bg-slate-900 border-b border-slate-800 p-3 flex items-center justify-between z-50 shadow-md shrink-0 h-16">
          <div className="flex items-center gap-4">
@@ -214,13 +385,24 @@ const App: React.FC = () => {
                 <button onClick={() => setViewMode('editor')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'editor' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Guitar size={14} /> Editor</button>
                 <button onClick={() => setViewMode('document')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'document' ? 'bg-white text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}><FileText size={14} /> Documento</button>
             </div>
+            {/* ATTRIBUTION LINE */}
             <div className="hidden xl:flex items-center gap-4 ml-4 border-l border-slate-700 pl-4">
                 <span className="text-[10px] text-slate-400 italic leading-tight max-w-[300px]">
                     Esta app fue diseñada para complementar el material del libro "principios del chord-melody" del prof. A. C. De Boeck
                 </span>
             </div>
          </div>
-         <div className="flex gap-2 items-center">
+         
+         <div className="flex gap-3 items-center">
+             {/* MANUAL BUTTON */}
+             <button 
+                onClick={() => setShowManual(true)} 
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-full transition-colors"
+                title="Manual de Usuario"
+             >
+                <HelpCircle size={20} />
+             </button>
+
              {viewMode === 'document' && (
                  <button onClick={async () => {
                       if (documentRef.current) {
@@ -279,11 +461,6 @@ const App: React.FC = () => {
                              <div className="space-y-3">
                                  <label className="text-xs font-bold text-slate-500 uppercase">Herramientas</label>
                                  <div className="flex gap-2">
-                                     <div className="flex items-center bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                                        <button onClick={() => setUseFlats(false)} className={`px-3 py-2 text-sm font-bold transition-colors ${!useFlats ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-700'}`}>#</button>
-                                        <div className="w-[1px] h-4 bg-slate-600"></div>
-                                        <button onClick={() => setUseFlats(true)} className={`px-3 py-2 text-sm font-bold transition-colors ${useFlats ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-700'}`}>b</button>
-                                     </div>
                                      <button onClick={() => playNotes(selectedNotes)} className="p-2 bg-slate-800 hover:bg-green-600 text-slate-300 hover:text-white rounded-lg border border-slate-700"><Play size={20} fill="currentColor" /></button>
                                      <button onClick={() => { setSelectedNotes([]); setRootNote(null); }} className="p-2 bg-slate-800 hover:bg-red-900 text-slate-300 hover:text-white rounded-lg border border-slate-700"><Trash2 size={20} /></button>
                                  </div>
@@ -364,34 +541,71 @@ const App: React.FC = () => {
                                 <button onClick={() => addGraphic('square')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Square size={14}/> +Cuadrado</button>
                                 <button onClick={() => addGraphic('circle')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Circle size={14}/> +Círculo</button>
                                 <button onClick={() => addGraphic('arrow')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Move size={14}/> +Flecha</button>
+                                <button onClick={() => addGraphic('text')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Type size={14}/> +Texto</button>
                             </div>
                             {selectedGraphicId ? (
                                 <div className="flex items-center gap-3">
+                                    {/* Text Editing */}
+                                    {selectedGraphic?.type === 'text' && (
+                                        <>
+                                            <div className="flex flex-col w-24">
+                                                <span className="text-[8px] uppercase text-slate-500">Contenido</span>
+                                                <input type="text" value={selectedGraphic.text} onChange={(e) => updateGraphic(selectedGraphicId, 'text', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-xs px-1 h-5"/>
+                                            </div>
+                                            <div className="flex flex-col w-16">
+                                                <span className="text-[8px] uppercase text-slate-500">Fuente</span>
+                                                <select value={selectedGraphic.fontFamily} onChange={(e) => updateGraphic(selectedGraphicId, 'fontFamily', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-xs h-5">
+                                                    <option value="Opus">Opus</option>
+                                                    <option value="Sans">Sans</option>
+                                                    <option value="Serif">Serif</option>
+                                                    <option value="Mono">Mono</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-[8px] uppercase text-slate-500">Bold</span>
+                                                <button onClick={() => updateGraphic(selectedGraphicId, 'fontWeight', selectedGraphic.fontWeight === 'bold' ? 'normal' : 'bold')} className={`p-0.5 rounded ${selectedGraphic.fontWeight === 'bold' ? 'bg-indigo-600' : 'bg-slate-700'}`}><Bold size={12}/></button>
+                                            </div>
+                                            <div className="flex flex-col items-center w-16">
+                                                <span className="text-[8px] uppercase text-slate-500">Tamaño</span>
+                                                <input type="range" min="8" max="72" value={selectedGraphic.fontSize} onChange={(e) => updateGraphic(selectedGraphicId, 'fontSize', parseInt(e.target.value))} className="w-full h-1" />
+                                            </div>
+                                        </>
+                                    )}
+
                                     <div className="flex flex-col items-center">
                                         <span className="text-[8px] uppercase text-slate-500 mb-1">Color</span>
                                         <div className="flex gap-1">
                                             {COLORS.map(c => <button key={c} onClick={() => updateGraphic(selectedGraphicId, 'color', c)} className="w-3 h-3 rounded-full" style={{backgroundColor: c}}></button>)}
                                         </div>
                                     </div>
-                                    <div className="flex flex-col items-center w-16">
-                                        <span className="text-[8px] uppercase text-slate-500">Opacidad</span>
-                                        <input type="range" min="0.1" max="1" step="0.1" onChange={(e) => updateGraphic(selectedGraphicId, 'opacity', parseFloat(e.target.value))} className="w-full h-1" />
-                                    </div>
+                                    
+                                    {/* Opacity */}
+                                    {selectedGraphic?.type !== 'text' && (
+                                        <div className="flex flex-col items-center w-16">
+                                            <span className="text-[8px] uppercase text-slate-500">Opacidad</span>
+                                            <input type="range" min="0.1" max="1" step="0.1" onChange={(e) => updateGraphic(selectedGraphicId, 'opacity', parseFloat(e.target.value))} className="w-full h-1" />
+                                        </div>
+                                    )}
+
                                     <div className="flex flex-col items-center w-16">
                                         <span className="text-[8px] uppercase text-slate-500 flex gap-1"><RotateCw size={8}/> Rotación</span>
                                         <input type="range" min="0" max="360" value={selectedGraphic?.rotation || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'rotation', parseInt(e.target.value))} className="w-full h-1" />
                                     </div>
-                                    {/* SIZE INPUTS */}
-                                    <div className="flex items-center gap-2 border-l border-slate-600 pl-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-[8px] uppercase text-slate-500">Ancho</span>
-                                            <input type="number" value={selectedGraphic?.width || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'width', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
+
+                                    {/* Resize Handles */}
+                                    {selectedGraphic?.type !== 'text' && (
+                                        <div className="flex items-center gap-2 border-l border-slate-600 pl-2">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] uppercase text-slate-500">Ancho</span>
+                                                <input type="number" value={selectedGraphic?.width || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'width', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] uppercase text-slate-500">Alto</span>
+                                                <input type="number" value={selectedGraphic?.height || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'height', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[8px] uppercase text-slate-500">Alto</span>
-                                            <input type="number" value={selectedGraphic?.height || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'height', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
-                                        </div>
-                                    </div>
+                                    )}
+
                                     <button onClick={() => setGraphics(prev => prev.filter(g => g.id !== selectedGraphicId))} className="text-red-400 hover:text-red-300 ml-2"><Trash2 size={16}/></button>
                                 </div>
                             ) : <span className="text-xs text-slate-500 italic">Clic en objeto para editar</span>}
@@ -404,7 +618,7 @@ const App: React.FC = () => {
              <div className="flex-grow overflow-auto bg-slate-800 flex justify-center p-8 relative" onClick={() => { setSelectedChordId(null); setSelectedGraphicId(null); }}>
                  <div ref={documentRef} className="bg-white text-black shadow-2xl relative transition-transform origin-top" style={{ width: '210mm', minHeight: '297mm', padding: '20mm', display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: '10mm' }}>
                      
-                     {/* Graphics Layer - Z-INDEX 20 to be on top of Chords */}
+                     {/* Graphics Layer - Z-INDEX 20 */}
                      <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none">
                         {graphics.map(g => (
                             <div key={g.id} onMouseDown={(e) => handleGraphicDragStart(e, g.id)} onClick={(e) => { e.stopPropagation(); setSelectedGraphicId(g.id); setDocToolMode('graphics'); }}
@@ -415,33 +629,31 @@ const App: React.FC = () => {
                                 style={{ 
                                     left: g.x, top: g.y, width: g.width, height: g.height, 
                                     transform: `rotate(${g.rotation}deg)`,
-                                    backgroundColor: g.type !== 'arrow' && g.filled ? g.color : 'transparent', 
-                                    border: g.type !== 'arrow' && !g.filled ? `2px solid ${g.color}` : 'none', 
-                                    opacity: g.opacity 
+                                    backgroundColor: (g.type !== 'arrow' && g.type !== 'text' && g.filled) ? g.color : 'transparent', 
+                                    border: (g.type !== 'arrow' && g.type !== 'text' && !g.filled) ? `2px solid ${g.color}` : 'none', 
+                                    opacity: g.opacity,
+                                    // Text Styles
+                                    color: g.color,
+                                    fontFamily: getFontFamily(g.fontFamily),
+                                    fontSize: g.fontSize,
+                                    fontWeight: g.fontWeight,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    whiteSpace: 'nowrap'
                                 }}
                             >
                                 {g.type === 'circle' && <div className="w-full h-full rounded-full" style={{backgroundColor: g.color}}></div>}
                                 {g.type === 'square' && <div className="w-full h-full" style={{backgroundColor: g.color}}></div>}
                                 {g.type === 'arrow' && renderArrow(g)}
+                                {g.type === 'text' && <span>{g.text}</span>}
 
-                                {/* Resize Handles */}
-                                {selectedGraphicId === g.id && (
+                                {/* Resize Handles (Not for text) */}
+                                {selectedGraphicId === g.id && g.type !== 'text' && (
                                     <>
-                                        {/* Right (Width) */}
-                                        <div 
-                                            onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'w')}
-                                            className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-indigo-500 rounded-full cursor-ew-resize z-20 hover:scale-125"
-                                        ></div>
-                                        {/* Bottom (Height) */}
-                                        <div 
-                                            onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'h')}
-                                            className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border border-indigo-500 rounded-full cursor-ns-resize z-20 hover:scale-125"
-                                        ></div>
-                                        {/* Corner (Both) */}
-                                        <div 
-                                            onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'wh')}
-                                            className="absolute bottom-[-5px] right-[-5px] w-3 h-3 bg-indigo-500 border border-white cursor-nwse-resize z-20 hover:scale-125"
-                                        ></div>
+                                        <div onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'w')} className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-indigo-500 rounded-full cursor-ew-resize z-20 hover:scale-125"></div>
+                                        <div onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'h')} className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border border-indigo-500 rounded-full cursor-ns-resize z-20 hover:scale-125"></div>
+                                        <div onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'wh')} className="absolute bottom-[-5px] right-[-5px] w-3 h-3 bg-indigo-500 border border-white cursor-nwse-resize z-20 hover:scale-125"></div>
                                     </>
                                 )}
                             </div>
@@ -457,11 +669,8 @@ const App: React.FC = () => {
                      </div>
 
                      {savedChords.map((chord, idx) => {
-                         // Style resolution: Specific Chord Property OR Global Fallback
-                         // Crucial logic fix: Use 'undefined' check to prioritize specific over global
                          const style = { 
                              shape: chord.noteShape || globalStyle.noteShape, 
-                             // Explicitly check for undefined to allow 'default' string to override global style in particular mode
                              color: chord.noteColor !== undefined ? chord.noteColor : globalStyle.noteColor, 
                              rootColor: chord.rootColor !== undefined ? chord.rootColor : globalStyle.rootColor,
                              size: chord.noteSize || globalStyle.noteSize 
