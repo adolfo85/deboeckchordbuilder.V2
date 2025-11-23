@@ -22,9 +22,17 @@ export const ChordSnapshot: React.FC<ChordSnapshotProps> = ({
 
   useEffect(() => { setIsGenericMode(generalFingeringMode); }, [generalFingeringMode]);
 
-  const width = 140; const height = 160; const paddingX = 15; const paddingY = 20;
-  const stringSpacing = (width - paddingX * 2) / 5; const fretSpacing = (height - paddingY * 2) / 5;
-  const baseRadius = 7 * styleSize;
+  // INCREASED DIMENSIONS FOR BETTER READABILITY
+  const width = 180; 
+  const height = 220; 
+  const paddingX = 25; 
+  const paddingY = 35; 
+  
+  const stringSpacing = (width - paddingX * 2) / 5; 
+  const fretSpacing = (height - paddingY * 2) / 5;
+  
+  // Larger Base Radius
+  const baseRadius = 10 * styleSize; 
 
   const frettedNotes = notes.filter(n => n.fretNumber > 0);
   const minFret = frettedNotes.length > 0 ? Math.min(...frettedNotes.map(n => n.fretNumber)) : 0;
@@ -37,9 +45,9 @@ export const ChordSnapshot: React.FC<ChordSnapshotProps> = ({
   const renderNoteShape = (cx: number, cy: number, isRoot: boolean) => {
       let fillColor;
       if (isRoot) {
-          fillColor = styleRootColor || '#000000'; // Default Fundamental Black
+          fillColor = styleRootColor || '#000000'; 
       } else {
-          fillColor = styleColor === 'default' ? '#ffffff' : styleColor; // Default Interval White
+          fillColor = styleColor === 'default' ? '#ffffff' : styleColor; 
       }
       const strokeColor = '#000';
       
@@ -58,14 +66,26 @@ export const ChordSnapshot: React.FC<ChordSnapshotProps> = ({
   };
 
   return (
-    <div onClick={(e) => { e.stopPropagation(); onClick(); }} className={`flex flex-col items-center relative group select-none transition-all rounded p-2 ${isSelected ? 'ring-2 ring-indigo-500 bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
-      <div onClick={(e) => { e.stopPropagation(); setIsGenericMode(!isGenericMode); }} className="text-center font-bold font-sans text-lg mb-1 text-black z-10 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-1 cursor-pointer hover:text-indigo-600 transition-colors" title="Clic para alternar nombre">{displayName}</div>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="absolute -top-2 -right-2 z-20 bg-red-500 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity transform hover:scale-110"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    <div onClick={(e) => { e.stopPropagation(); onClick(); }} className={`flex flex-col items-center relative group select-none transition-all rounded p-3 ${isSelected ? 'ring-2 ring-indigo-500 bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+      
+      {/* Title with larger font */}
+      <div onClick={(e) => { e.stopPropagation(); setIsGenericMode(!isGenericMode); }} className="text-center font-bold font-sans text-xl mb-2 text-black z-10 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-1 cursor-pointer hover:text-indigo-600 transition-colors" title="Clic para alternar nombre">{displayName}</div>
+      
+      <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="absolute -top-2 -right-2 z-20 bg-red-500 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity transform hover:scale-110"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible pointer-events-none">
-        {startFret > 1 && !isGenericMode && <text x={paddingX - 6} y={paddingY + fretSpacing / 1.5} fontSize="12" fontWeight="bold" fill="#000" textAnchor="end" fontFamily="sans-serif">{startFret}fr</text>}
-        {startFret === 1 && <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="#000" strokeWidth="3" strokeLinecap="square" />}
-        {Array.from({ length: 6 }).map((_, i) => { const y = paddingY + i * fretSpacing; return <line key={`f-${i}`} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#000" strokeWidth="1" />; })}
-        {strings.map((s) => { const x = paddingX + s * stringSpacing; return <line key={`s-${s}`} x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#000" strokeWidth={s < 3 ? "1.5" : "1"} />; })}
+        
+        {startFret > 1 && !isGenericMode && <text x={paddingX - 8} y={paddingY + fretSpacing / 1.5} fontSize="14" fontWeight="bold" fill="#000" textAnchor="end" fontFamily="sans-serif">{startFret}fr</text>}
+        
+        {startFret === 1 && <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="#000" strokeWidth="4" strokeLinecap="square" />}
+        
+        {/* Frets */}
+        {Array.from({ length: 6 }).map((_, i) => { const y = paddingY + i * fretSpacing; return <line key={`f-${i}`} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#000" strokeWidth="1.5" />; })}
+        
+        {/* Strings - Thicker low strings */}
+        {strings.map((s) => { const x = paddingX + s * stringSpacing; return <line key={`s-${s}`} x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#000" strokeWidth={s < 3 ? "2" : "1.2"} />; })}
+        
+        {/* Notes */}
         {strings.map((stringIdx) => {
            const x = paddingX + stringIdx * stringSpacing;
            const note = notes.find(n => n.stringIndex === stringIdx);
@@ -73,11 +93,12 @@ export const ChordSnapshot: React.FC<ChordSnapshotProps> = ({
            let label = "";
            const shouldDisplayIntervals = isGenericMode || showIntervals;
            if (rootNote && shouldDisplayIntervals) {
-               if (rootNote.stringIndex === note.stringIndex && rootNote.fretNumber === note.fretNumber) label = "F"; // R -> F
+               if (rootNote.stringIndex === note.stringIndex && rootNote.fretNumber === note.fretNumber) label = "F"; 
                else label = calculateInterval(rootNote.absoluteSemitone, note.absoluteSemitone, useFlats, note.accidental).name;
            } else label = getNoteDisplay(note.note, useFlats, note.accidental);
 
-           if (note.fretNumber === 0) return <g key={`o-${stringIdx}`}><circle cx={x} cy={paddingY - 10} r={baseRadius * 0.7} fill="none" stroke="#000" strokeWidth="1.5" /></g>;
+           // Open String
+           if (note.fretNumber === 0) return <g key={`o-${stringIdx}`}><circle cx={x} cy={paddingY - 14} r={baseRadius * 0.6} fill="none" stroke="#000" strokeWidth="2" /></g>;
 
            const relativeFret = note.fretNumber - startFret + 1;
            if (relativeFret >= 1 && relativeFret <= 5) {
@@ -88,7 +109,9 @@ export const ChordSnapshot: React.FC<ChordSnapshotProps> = ({
              else bgColor = styleColor === 'default' ? '#ffffff' : styleColor;
              const isDarkBg = bgColor !== '#ffffff' && bgColor !== '#fff';
              const textColor = isDarkBg ? "#fff" : "#000";
-             return <g key={`n-${stringIdx}`}>{renderNoteShape(x, y, isRoot)}<text x={x} y={y + (styleSize * 3)} textAnchor="middle" fill={textColor} fontSize={9 * styleSize} fontWeight="bold" fontFamily="Arial">{label}</text></g>;
+             
+             // Larger font for notes
+             return <g key={`n-${stringIdx}`}>{renderNoteShape(x, y, isRoot)}<text x={x} y={y + (styleSize * 4)} textAnchor="middle" fill={textColor} fontSize={12 * styleSize} fontWeight="bold" fontFamily="Arial">{label}</text></g>;
            }
            return null;
         })}

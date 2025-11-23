@@ -131,7 +131,7 @@ const App: React.FC = () => {
   const tuning = TUNINGS['standard'];
 
   // STATE
-  const [showManual, setShowManual] = useState<boolean>(false); // Manual visibility state
+  const [showManual, setShowManual] = useState<boolean>(false); 
 
   // EDITOR STATE
   const [selectedNotes, setSelectedNotes] = useState<NoteData[]>([]);
@@ -385,7 +385,6 @@ const App: React.FC = () => {
                 <button onClick={() => setViewMode('editor')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'editor' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Guitar size={14} /> Editor</button>
                 <button onClick={() => setViewMode('document')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'document' ? 'bg-white text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}><FileText size={14} /> Documento</button>
             </div>
-            {/* ATTRIBUTION LINE */}
             <div className="hidden xl:flex items-center gap-4 ml-4 border-l border-slate-700 pl-4">
                 <span className="text-[10px] text-slate-400 italic leading-tight max-w-[300px]">
                     Esta app fue diseñada para complementar el material del libro "principios del chord-melody" del prof. A. C. De Boeck
@@ -394,7 +393,6 @@ const App: React.FC = () => {
          </div>
          
          <div className="flex gap-3 items-center">
-             {/* MANUAL BUTTON */}
              <button 
                 onClick={() => setShowManual(true)} 
                 className="p-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-full transition-colors"
@@ -431,7 +429,6 @@ const App: React.FC = () => {
                 
                 <Fretboard tuning={tuning} rootNote={rootNote} selectedNotes={selectedNotes} onToggleNote={handleToggleNote} onNoteClick={handleNoteClick} noteDisplayMode={noteDisplayMode} useFlats={useFlats} accentColor={accentColor} showFretNumbers={showFretNumbers} showInlays={showInlays} startFret={1} fretCount={fretCount} showGhostNotes={false} />
                 
-                {/* Capture Button */}
                 <div className="mt-6 mb-2 flex justify-center z-50">
                     <button onClick={captureChord} disabled={selectedNotes.length === 0} className="flex items-center gap-3 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:scale-95 hover:scale-105">
                         <Camera size={20} /> <span>Capturar Diagrama</span>
@@ -592,19 +589,17 @@ const App: React.FC = () => {
                                         <input type="range" min="0" max="360" value={selectedGraphic?.rotation || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'rotation', parseInt(e.target.value))} className="w-full h-1" />
                                     </div>
 
-                                    {/* Resize Handles */}
-                                    {selectedGraphic?.type !== 'text' && (
-                                        <div className="flex items-center gap-2 border-l border-slate-600 pl-2">
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] uppercase text-slate-500">Ancho</span>
-                                                <input type="number" value={selectedGraphic?.width || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'width', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] uppercase text-slate-500">Alto</span>
-                                                <input type="number" value={selectedGraphic?.height || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'height', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
-                                            </div>
+                                    {/* Resize Handles (Allowed for all types including text) */}
+                                    <div className="flex items-center gap-2 border-l border-slate-600 pl-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] uppercase text-slate-500">Ancho</span>
+                                            <input type="number" value={selectedGraphic?.width || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'width', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
                                         </div>
-                                    )}
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] uppercase text-slate-500">Alto</span>
+                                            <input type="number" value={selectedGraphic?.height || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'height', parseInt(e.target.value))} className="w-10 bg-slate-900 border border-slate-600 rounded text-[10px] px-1" />
+                                        </div>
+                                    </div>
 
                                     <button onClick={() => setGraphics(prev => prev.filter(g => g.id !== selectedGraphicId))} className="text-red-400 hover:text-red-300 ml-2"><Trash2 size={16}/></button>
                                 </div>
@@ -618,7 +613,7 @@ const App: React.FC = () => {
              <div className="flex-grow overflow-auto bg-slate-800 flex justify-center p-8 relative" onClick={() => { setSelectedChordId(null); setSelectedGraphicId(null); }}>
                  <div ref={documentRef} className="bg-white text-black shadow-2xl relative transition-transform origin-top" style={{ width: '210mm', minHeight: '297mm', padding: '20mm', display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: '10mm' }}>
                      
-                     {/* Graphics Layer - Z-INDEX 20 */}
+                     {/* Graphics Layer - Z-INDEX 20 to be on top of Chords */}
                      <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none">
                         {graphics.map(g => (
                             <div key={g.id} onMouseDown={(e) => handleGraphicDragStart(e, g.id)} onClick={(e) => { e.stopPropagation(); setSelectedGraphicId(g.id); setDocToolMode('graphics'); }}
@@ -640,7 +635,8 @@ const App: React.FC = () => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    whiteSpace: 'nowrap'
+                                    whiteSpace: 'normal', // Allow wrapping
+                                    textAlign: 'center'
                                 }}
                             >
                                 {g.type === 'circle' && <div className="w-full h-full rounded-full" style={{backgroundColor: g.color}}></div>}
@@ -648,8 +644,8 @@ const App: React.FC = () => {
                                 {g.type === 'arrow' && renderArrow(g)}
                                 {g.type === 'text' && <span>{g.text}</span>}
 
-                                {/* Resize Handles (Not for text) */}
-                                {selectedGraphicId === g.id && g.type !== 'text' && (
+                                {/* Resize Handles */}
+                                {selectedGraphicId === g.id && (
                                     <>
                                         <div onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'w')} className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-indigo-500 rounded-full cursor-ew-resize z-20 hover:scale-125"></div>
                                         <div onMouseDown={(e) => handleGraphicResizeStart(e, g.id, 'h')} className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border border-indigo-500 rounded-full cursor-ns-resize z-20 hover:scale-125"></div>
