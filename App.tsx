@@ -214,7 +214,7 @@ const App: React.FC = () => {
                     <div className="hidden xl:flex items-center gap-4 ml-4 border-l border-slate-700 pl-4"><span className="text-[10px] text-slate-400 italic leading-tight max-w-[300px]">Esta app fue diseñada para complementar el material del libro "principios del chord-melody" del prof. A. C. De Boeck</span></div>
                 </div>
                 <div className="flex gap-3 items-center">
-                    <button onClick={() => setShowManual(true)} className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold rounded-lg transition-colors" title="Manual de Usuario"><HelpCircle size={20} /> <span className="text-xs">Manual de Ayuda</span></button>
+                    <button onClick={() => setShowManual(true)} className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold rounded-lg transition-colors" title="Manual de Usuario"><HelpCircle size={20} /> <span className="text-xs">Manual de Usuario</span></button>
                     {viewMode === 'document' && <button onClick={async () => { if (documentRef.current) { const dataUrl = await toPng(documentRef.current, { cacheBust: true, backgroundColor: '#ffffff' }); const link = document.createElement('a'); link.download = `DeBoeck-Sheet-${Date.now()}.png`; link.href = dataUrl; link.click(); } }} className="flex items-center gap-2 px-4 py-2 bg-white text-slate-900 font-bold rounded-lg shadow-lg"><Printer size={18} /> <span className="text-sm">Exportar A4</span></button>}
                 </div>
             </div>
@@ -225,14 +225,14 @@ const App: React.FC = () => {
                 {/* --- EDITOR MODE --- */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${viewMode === 'editor' ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex-grow relative flex flex-col items-center justify-start pt-4 overflow-y-auto" ref={fretboardContainerRef}>
-                        <div className="z-40 mb-4 mt-4 flex items-center gap-4">
-                            <div className="bg-indigo-600 border border-[#1e293b] rounded-lg px-8 py-3 shadow-lg flex flex-col items-center min-w-[200px]">
+                        <div className="z-40 mb-4 mt-4 bg-slate-900 p-2 rounded-2xl border border-slate-800 shadow-2xl flex items-stretch gap-2">
+                            <div className="bg-indigo-600 rounded-xl px-8 py-3 flex flex-col items-center justify-center min-w-[180px]">
                                 <span className="text-[10px] uppercase font-bold mb-1 text-indigo-200">Acorde</span>
                                 <div className="text-3xl font-black text-white tracking-tight">{detectedChord || <span className="text-indigo-400">---</span>}</div>
                             </div>
-                            <button onClick={captureChord} disabled={selectedNotes.length === 0} className="flex flex-col items-center justify-center gap-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 border border-[#1e293b] text-white font-bold rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:scale-95 hover:scale-105 h-full min-w-[120px]">
+                            <button onClick={captureChord} disabled={selectedNotes.length === 0} className="flex flex-col items-center justify-center gap-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:scale-95 hover:scale-105 min-w-[100px]">
+                                <span className="text-[10px] uppercase text-indigo-200 font-bold">Capturar</span>
                                 <Camera size={24} />
-                                <span className="text-[10px] uppercase">Capturar</span>
                             </button>
                         </div>
                         <Fretboard tuning={tuning} rootNote={rootNote} selectedNotes={selectedNotes} onToggleNote={handleToggleNote} onNoteClick={handleNoteClick} noteDisplayMode={noteDisplayMode} useFlats={useFlats} accentColor={accentColor} showFretNumbers={showFretNumbers} showInlays={showInlays} startFret={1} fretCount={fretCount} showGhostNotes={false} />
