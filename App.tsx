@@ -38,7 +38,7 @@ const ManualModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
                         </div>
                         <div>
                             <strong className="text-slate-800 block mb-1">Capturar Diagrama:</strong>
-                            <p className="text-sm">Guarda el acorde actual en la hoja de documento. <strong>Nota:</strong> Hay un límite de 6 acordes por hoja para asegurar una correcta maquetación A4.</p>
+                            <p className="text-sm">Guarda el acorde actual en la hoja de documento. <strong>Nota:</strong> Hay un límite de 9 acordes por hoja para asegurar una correcta maquetación A4.</p>
                         </div>
                     </div>
                 </section>
@@ -108,8 +108,8 @@ const App: React.FC = () => {
         setSelectedNotes(prev => prev.map(n => n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber ? { ...n, accidental: n.accidental === 'b' ? '#' : 'b' } : n));
     };
     const captureChord = () => {
-        if (savedChords.length >= 6) {
-            alert("Has alcanzado el límite de 6 acordes por hoja. Por favor, borra los acordes existentes o exporta tu documento antes de agregar más.");
+        if (savedChords.length >= 9) {
+            alert("Has alcanzado el límite de 9 acordes por hoja. Por favor, borra los acordes existentes o exporta tu documento antes de agregar más.");
             return;
         }
         if (selectedNotes.length === 0) return;
