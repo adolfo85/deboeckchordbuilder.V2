@@ -225,7 +225,7 @@ const App: React.FC = () => {
                 {/* --- EDITOR MODE --- */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${viewMode === 'editor' ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex-grow relative flex flex-col items-center justify-start pt-4 overflow-y-auto" ref={fretboardContainerRef}>
-                        <div className="z-40 mb-4 mt-4 bg-slate-900 p-2 rounded-2xl border border-slate-800 shadow-2xl flex items-stretch gap-2">
+                        <div className="z-40 mb-4 mt-4 bg-slate-800 p-2 rounded-2xl border border-slate-700 shadow-2xl flex items-stretch gap-2">
                             <div className="bg-indigo-600 rounded-xl px-8 py-3 flex flex-col items-center justify-center min-w-[180px]">
                                 <span className="text-[10px] uppercase font-bold mb-1 text-indigo-200">Acorde</span>
                                 <div className="text-3xl font-black text-white tracking-tight">{detectedChord || <span className="text-indigo-400">---</span>}</div>
