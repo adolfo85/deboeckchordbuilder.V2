@@ -5,37 +5,53 @@ import { ChordSnapshot } from './components/ChordSnapshot';
 import { NoteData, SavedChord, ChordStyle, GraphicObject } from './types';
 import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes } from './utils/theory';
 import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info } from 'lucide-react';
+import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info, BookOpen, Layout } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 // --- MANUAL COMPONENT ---
 const ManualModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col relative text-slate-300">
-            <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-950/50 rounded-t-2xl">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-600 rounded-lg text-white"><Info size={24} /></div>
-                    <div><h2 className="text-2xl font-black text-white tracking-tight">Manual de Usuario</h2><p className="text-xs text-indigo-400 font-bold uppercase tracking-wider">DeBoeck ChordBuilder v.2</p></div>
-                </div>
-                <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"><X size={24} /></button>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><BookOpen className="text-indigo-600" /> Manual de Usuario</h2>
+                <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
             </div>
-            <div className="flex-grow overflow-y-auto p-8 space-y-12">
+            <div className="p-8 space-y-8 text-slate-600 leading-relaxed">
                 <section>
-                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2"><Guitar className="text-indigo-500" /> 1. El Editor</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                        <div className="space-y-3"><p><strong className="text-white">Fundamental (F):</strong> La nota roja es la raíz.</p></div>
-                        <div className="space-y-3"><p><strong className="text-white">Definir Fundamental:</strong> Selecciona la herramienta y haz clic en una nota para hacerla raíz.</p></div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2"><MousePointer2 size={20} className="text-indigo-500" /> Interacción Básica</h3>
+                    <ul className="space-y-2 list-disc pl-5">
+                        <li><strong>Click simple:</strong> Agrega o quita una nota en el diapasón.</li>
+                        <li><strong>Doble click:</strong> Cambia la alteración de la nota (de Sostenido a Bemol y viceversa).</li>
+                        <li><strong>Arrastrar:</strong> Puedes desplazarte por el diapasón si no cabe en la pantalla.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2"><Layout size={20} className="text-indigo-500" /> Herramientas y Pestañas</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <strong className="text-slate-800 block mb-1">Pestaña Estilo:</strong>
+                            <p className="text-sm">Personaliza la apariencia. Puedes cambiar el color de las notas (Azul, Dorado, Rosa, Slate) y ocultar/mostrar los números de trastes y los puntos de guía (inlays).</p>
+                        </div>
+                        <div>
+                            <strong className="text-slate-800 block mb-1">Definir Fundamental:</strong>
+                            <p className="text-sm">Activa este modo y haz click en una nota para marcarla como la tónica (roja) del acorde. Es crucial para que el sistema identifique correctamente el nombre del acorde.</p>
+                        </div>
+                        <div>
+                            <strong className="text-slate-800 block mb-1">Capturar Diagrama:</strong>
+                            <p className="text-sm">Guarda el acorde actual en la hoja de documento. <strong>Nota:</strong> Hay un límite de 6 acordes por hoja para asegurar una correcta maquetación A4.</p>
+                        </div>
                     </div>
                 </section>
+
                 <section>
-                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2"><FileText className="text-indigo-500" /> 2. Documento</h3>
-                    <p className="text-sm text-slate-400">Organiza tus diagramas. Arrastra para reordenar. Haz clic en títulos para editar.</p>
-                </section>
-                <section>
-                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 border-b border-slate-800 pb-2"><Shapes className="text-indigo-500" /> 3. Gráficos y Texto</h3>
-                    <p className="text-sm text-slate-400">Añade figuras o texto. Usa los controles para redimensionar (cuadros blancos), rotar y cambiar fuente.</p>
+                    <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2"><FileText size={20} className="text-indigo-500" /> Exportación</h3>
+                    <p>En el modo "Documento", puedes ver todos tus acordes capturados. Usa el botón <strong>"Exportar A4"</strong> para descargar una imagen PNG lista para imprimir o compartir.</p>
                 </section>
             </div>
-            <div className="p-6 border-t border-slate-700 bg-slate-950/50 rounded-b-2xl flex justify-end"><button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">Cerrar</button></div>
+            <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+                <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg">Entendido</button>
+            </div>
         </div>
     </div>
 );
@@ -93,6 +109,10 @@ const App: React.FC = () => {
         setSelectedNotes(prev => prev.map(n => n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber ? { ...n, accidental: n.accidental === 'b' ? '#' : 'b' } : n));
     };
     const captureChord = () => {
+        if (capturedChords.length >= 6) {
+            alert("Has alcanzado el límite de 6 acordes por hoja. Por favor, borra los acordes existentes o exporta tu documento antes de agregar más.");
+            return;
+        }
         if (selectedNotes.length === 0) return;
         const newChord: SavedChord = { id: Date.now().toString(), name: detectChordName(rootNote!, selectedNotes, useFlats) || "Sin nombre", notes: [...selectedNotes], rootNote: rootNote ? { ...rootNote } : null, date: Date.now(), showIntervals: noteDisplayMode === 'intervals', useFlats, instrument: 'guitar', tuningId: 'standard' };
         setSavedChords(prev => [...prev, newChord]); setViewMode('document');
