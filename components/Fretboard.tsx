@@ -105,7 +105,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
             })}
           </div>
 
-          <div className="relative flex h-full border-r-4 border-slate-700 bg-[#1e293b] shadow-2xl">
+          <div className="relative flex h-full border-4 border-slate-800 bg-[#1e293b] shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-lg overflow-hidden">
             {Array.from({ length: fretCount }).map((_, i) => {
               const fretNum = i + 1;
               const width = Math.max(45, 80 - (fretNum * 1.8));
