@@ -141,7 +141,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
                     return (
                       <div key={`s${stringIdx}-f${fretNum}`} className="flex-1 w-full relative cursor-pointer group flex items-center justify-center z-10" onClick={() => onToggleNote(stringIdx, fretNum)}>
                         <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 pointer-events-none z-0 flex items-center"><div className={`w-full bg-[#94a3b8] shadow-sm`} style={{ height: `${thickness}px`, opacity: 0.6 }}></div></div>
-                        {noteData && <div className={`rounded-full flex items-center justify-center font-bold transition-all duration-150 animate-in zoom-in ${noteClass} ${sizeClass}`} onClick={(e) => { e.stopPropagation(); onNoteClick(noteData); }}>{displayLabel}</div>}
+                        {noteData && <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-bold transition-all duration-150 animate-in zoom-in ${noteClass} ${sizeClass}`} onClick={(e) => { e.stopPropagation(); onNoteClick(noteData); }}>{displayLabel}</div>}
                       </div>
                     );
                   })}
