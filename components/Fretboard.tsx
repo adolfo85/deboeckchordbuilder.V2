@@ -82,7 +82,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
 
               if (noteData) {
                 const isRoot = rootNote && noteData.stringIndex === rootNote.stringIndex && noteData.fretNumber === rootNote.fretNumber;
-                sizeClass = isRoot ? "w-11 h-11 text-base z-50" : "w-10 h-10 text-sm z-40";
+                sizeClass = isRoot ? "w-10 h-10 text-sm z-50" : "w-10 h-10 text-sm z-40";
 
                 if (isRoot) {
                   label = noteDisplayMode === 'intervals' ? "F" : stringName;
@@ -124,7 +124,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
                     let sizeClass = "";
                     if (noteData) {
                       const isRoot = rootNote && noteData.stringIndex === rootNote.stringIndex && noteData.fretNumber === rootNote.fretNumber;
-                      sizeClass = isRoot ? "w-11 h-11 text-base z-50" : "w-10 h-10 text-sm z-40";
+                      sizeClass = isRoot ? "w-10 h-10 text-sm z-50" : "w-10 h-10 text-sm z-40";
                       if (isRoot) {
                         displayLabel = noteDisplayMode === 'intervals' ? "F" : getNoteDisplay(noteData.note, useFlats, noteData.accidental);
                         noteClass = getNoteClasses(true);
