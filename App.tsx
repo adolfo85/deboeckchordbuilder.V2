@@ -8,48 +8,88 @@ import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileTe
 import { toPng } from 'html-to-image';
 
 // --- MANUAL COMPONENT ---
-const ManualModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+const ManualModal = ({ onClose }: { onClose: () => void }) => (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-        <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
-                <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><BookOpen className="text-indigo-600" /> Manual de Usuario</h2>
+        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl sticky top-0 z-10">
+                <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3"><BookOpen className="text-indigo-600" /> Manual de Usuario <span className="text-sm font-normal text-slate-500 bg-slate-200 px-2 py-1 rounded-full">v.2.0</span></h2>
                 <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
             </div>
-            <div className="p-8 space-y-8 text-slate-600 leading-relaxed">
-                <section>
-                    <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2"><MousePointer2 size={20} className="text-indigo-500" /> Interacción Básica</h3>
-                    <ul className="space-y-2 list-disc pl-5">
-                        <li><strong>Click simple:</strong> Agrega o quita una nota en el diapasón.</li>
-                        <li><strong>Doble click:</strong> Cambia la alteración de la nota (de Sostenido a Bemol y viceversa).</li>
-                        <li><strong>Arrastrar:</strong> Puedes desplazarte por el diapasón si no cabe en la pantalla.</li>
-                    </ul>
-                </section>
 
+            <div className="p-8 space-y-10 text-slate-600 leading-relaxed overflow-y-auto">
+
+                {/* SECCIÓN 1: EDITOR */}
                 <section>
-                    <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2"><Layout size={20} className="text-indigo-500" /> Herramientas y Pestañas</h3>
-                    <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2"><Guitar className="text-indigo-500" /> 1. Modo Editor</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <strong className="text-slate-800 block mb-1">Pestaña Estilo:</strong>
-                            <p className="text-sm">Personaliza la apariencia. Puedes cambiar el color de las notas (Azul, Dorado, Rosa, Slate) y ocultar/mostrar los números de trastes y los puntos de guía (inlays).</p>
+                            <h4 className="font-bold text-slate-800 mb-2">Interacción con el Diapasón</h4>
+                            <ul className="space-y-2 list-disc pl-5 text-sm">
+                                <li><strong>Click:</strong> Agrega o quita notas.</li>
+                                <li><strong>Doble Click:</strong> Cambia la alteración (Sostenido <span className="font-mono">#</span> ↔ Bemol <span className="font-mono">b</span>).</li>
+                                <li><strong>Arrastrar:</strong> Desplaza la vista del diapasón si es necesario.</li>
+                            </ul>
                         </div>
                         <div>
-                            <strong className="text-slate-800 block mb-1">Definir Fundamental:</strong>
-                            <p className="text-sm">Activa este modo y haz click en una nota para marcarla como la tónica (roja) del acorde. Es crucial para que el sistema identifique correctamente el nombre del acorde.</p>
-                        </div>
-                        <div>
-                            <strong className="text-slate-800 block mb-1">Capturar Diagrama:</strong>
-                            <p className="text-sm">Guarda el acorde actual en la hoja de documento. <strong>Nota:</strong> Hay un límite de 9 acordes por hoja para asegurar una correcta maquetación A4.</p>
+                            <h4 className="font-bold text-slate-800 mb-2">Herramientas Principales</h4>
+                            <ul className="space-y-2 list-disc pl-5 text-sm">
+                                <li><strong>Definir Fundamental:</strong> Activa esta herramienta y toca una nota para marcarla en <span className="text-red-500 font-bold">rojo</span> como tónica.</li>
+                                <li><strong>Estilo:</strong> Personaliza colores, inlays y números de trastes.</li>
+                                <li><strong>Capturar:</strong> Envía el diagrama actual al documento (Máx. 9).</li>
+                            </ul>
                         </div>
                     </div>
                 </section>
 
+                {/* SECCIÓN 2: DOCUMENTO */}
                 <section>
-                    <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2"><FileText size={20} className="text-indigo-500" /> Exportación</h3>
-                    <p>En el modo "Documento", puedes ver todos tus acordes capturados. Usa el botón <strong>"Exportar A4"</strong> para descargar una imagen PNG lista para imprimir o compartir.</p>
+                    <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2"><FileText className="text-indigo-500" /> 2. Modo Documento (Hoja de Trabajo)</h3>
+                    <p className="mb-4 text-sm">Aquí es donde maquetas tu hoja final. Puedes organizar tus acordes capturados y enriquecer el documento con gráficos y texto.</p>
+
+                    <div className="space-y-6">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h4 className="font-bold text-indigo-700 mb-2 flex items-center gap-2"><Move size={18} /> Gestión de Acordes</h4>
+                            <ul className="space-y-2 list-disc pl-5 text-sm">
+                                <li><strong>Reordenar:</strong> Haz click y arrastra cualquier diagrama de acorde para cambiarlo de posición en la cuadrícula.</li>
+                                <li><strong>Editar Título:</strong> Haz click sobre el nombre del acorde para renombrarlo manualmente.</li>
+                                <li><strong>Eliminar:</strong> Usa el icono de papelera sobre un acorde para quitarlo de la hoja.</li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h4 className="font-bold text-indigo-700 mb-2 flex items-center gap-2"><Shapes size={18} /> Gráficos y Texto</h4>
+                            <p className="text-sm mb-3">Usa el panel inferior "Inspector" para agregar elementos:</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono text-slate-500 mb-4">
+                                <span className="bg-white px-2 py-1 rounded border text-center">Texto</span>
+                                <span className="bg-white px-2 py-1 rounded border text-center">Cuadrado</span>
+                                <span className="bg-white px-2 py-1 rounded border text-center">Círculo</span>
+                                <span className="bg-white px-2 py-1 rounded border text-center">Flecha</span>
+                            </div>
+                            <ul className="space-y-2 list-disc pl-5 text-sm">
+                                <li><strong>Mover:</strong> Arrastra cualquier elemento gráfico libremente por la hoja.</li>
+                                <li><strong>Redimensionar:</strong> Usa los pequeños cuadros blancos en las esquinas de un elemento seleccionado para cambiar su tamaño.</li>
+                                <li><strong>Editar Propiedades:</strong> Al seleccionar un elemento, el panel inferior mostrará opciones específicas:
+                                    <ul className="pl-4 mt-1 list-[circle] text-slate-500">
+                                        <li><strong>Color y Opacidad:</strong> Cambia el relleno y la transparencia.</li>
+                                        <li><strong>Capas:</strong> Usa los botones de "Capas" para traer elementos al frente o enviarlos al fondo.</li>
+                                        <li><strong>Texto:</strong> Cambia la fuente (Serif, Sans, Mono, Opus), tamaño y negrita.</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </section>
+
+                {/* SECCIÓN 3: EXPORTACIÓN */}
+                <section>
+                    <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2"><Printer className="text-indigo-500" /> 3. Exportación</h3>
+                    <p className="text-sm">Una vez terminada tu hoja, haz click en <strong>"Exportar A4"</strong>. Se generará una imagen de alta calidad (PNG) lista para imprimir o compartir digitalmente.</p>
+                </section>
+
             </div>
-            <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
-                <button onClick={onClose} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg">Entendido</button>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end sticky bottom-0 z-10">
+                <button onClick={onClose} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg">¡Entendido, a crear!</button>
             </div>
         </div>
     </div>
@@ -174,7 +214,7 @@ const App: React.FC = () => {
                     <div className="hidden xl:flex items-center gap-4 ml-4 border-l border-slate-700 pl-4"><span className="text-[10px] text-slate-400 italic leading-tight max-w-[300px]">Esta app fue diseñada para complementar el material del libro "principios del chord-melody" del prof. A. C. De Boeck</span></div>
                 </div>
                 <div className="flex gap-3 items-center">
-                    <button onClick={() => setShowManual(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-full transition-colors" title="Manual de Usuario"><HelpCircle size={20} /></button>
+                    <button onClick={() => setShowManual(true)} className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 font-bold rounded-lg transition-colors" title="Manual de Usuario"><HelpCircle size={20} /> <span className="text-xs">Manual de Ayuda</span></button>
                     {viewMode === 'document' && <button onClick={async () => { if (documentRef.current) { const dataUrl = await toPng(documentRef.current, { cacheBust: true, backgroundColor: '#ffffff' }); const link = document.createElement('a'); link.download = `DeBoeck-Sheet-${Date.now()}.png`; link.href = dataUrl; link.click(); } }} className="flex items-center gap-2 px-4 py-2 bg-white text-slate-900 font-bold rounded-lg shadow-lg"><Printer size={18} /> <span className="text-sm">Exportar A4</span></button>}
                 </div>
             </div>
