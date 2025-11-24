@@ -161,11 +161,11 @@ const App: React.FC = () => {
             </div>
 
             {/* CONTENT */}
-            <div className="flex-grow relative overflow-hidden bg-[#f5f5dc] flex flex-col">
+            <div className="flex-grow relative overflow-hidden bg-slate-200 flex flex-col">
 
                 {/* --- EDITOR MODE --- */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${viewMode === 'editor' ? 'translate-x-0' : '-translate-x-full'}`}>
-                    <div className="flex-grow relative flex flex-col items-center justify-center overflow-hidden" ref={fretboardContainerRef}>
+                    <div className="flex-grow relative flex flex-col items-center justify-start pt-12 overflow-hidden" ref={fretboardContainerRef}>
                         <div className="z-40 mb-4 mt-8"><div className="bg-white border-2 border-[#d4d4d4] rounded-xl px-8 py-3 shadow-2xl flex flex-col items-center min-w-[200px]"><span className="text-[10px] uppercase font-bold mb-1 text-slate-500">Acorde</span><div className="text-3xl font-black text-slate-900 tracking-tight">{detectedChord || <span className="text-slate-400">---</span>}</div></div></div>
                         <Fretboard tuning={tuning} rootNote={rootNote} selectedNotes={selectedNotes} onToggleNote={handleToggleNote} onNoteClick={handleNoteClick} noteDisplayMode={noteDisplayMode} useFlats={useFlats} accentColor={accentColor} showFretNumbers={showFretNumbers} showInlays={showInlays} startFret={1} fretCount={fretCount} showGhostNotes={false} />
                         <div className="mt-6 mb-2 flex justify-center z-50"><button onClick={captureChord} disabled={selectedNotes.length === 0} className="flex items-center gap-3 px-8 py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-900 font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:scale-95 hover:scale-105"><Camera size={20} /> <span>Capturar Diagrama</span></button></div>

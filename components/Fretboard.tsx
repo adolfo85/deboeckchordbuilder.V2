@@ -58,8 +58,8 @@ export const Fretboard: React.FC<FretboardProps> = ({
   const visualStrings = Array.from({ length: tuning.stringCount }, (_, i) => (tuning.stringCount - 1) - i);
 
   return (
-    <div className="w-full h-full flex flex-col justify-center bg-[#f5f5dc] relative shadow-none">
-      <div className="absolute inset-0 bg-[#f5f5dc]"></div>
+    <div className="w-full h-full flex flex-col justify-center bg-slate-200 relative shadow-none">
+      <div className="absolute inset-0 bg-slate-200"></div>
 
       <div
         ref={scrollRef}
