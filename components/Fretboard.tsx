@@ -58,8 +58,8 @@ export const Fretboard: React.FC<FretboardProps> = ({
   const visualStrings = Array.from({ length: tuning.stringCount }, (_, i) => (tuning.stringCount - 1) - i);
 
   return (
-    <div className="w-full h-full flex flex-col justify-center bg-slate-200 relative shadow-none">
-      <div className="absolute inset-0 bg-slate-200"></div>
+    <div className="w-full h-full flex flex-col justify-center bg-transparent relative shadow-none">
+      <div className="absolute inset-0 bg-transparent"></div>
 
       <div
         ref={scrollRef}
@@ -77,7 +77,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
               const stringName = getNoteDisplay(rawNoteInfo.note, useFlats);
 
               let label = stringName;
-              let noteClass = "bg-transparent text-white/40 border border-white/10 hover:bg-white/5 w-9 h-9";
+              let noteClass = "bg-white text-slate-700 border-2 border-slate-300 hover:bg-slate-50 w-9 h-9 shadow-sm";
               let sizeClass = "";
 
               if (noteData) {
