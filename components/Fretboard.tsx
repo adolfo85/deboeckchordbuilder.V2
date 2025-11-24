@@ -63,7 +63,11 @@ export const Fretboard: React.FC<FretboardProps> = ({
 
       <div
         ref={scrollRef}
-        className="horizontal-scroll w-full overflow-x-auto overflow-y-visible relative z-10 flex items-center py-10 px-4"
+      <div
+        ref={scrollRef}
+        className="horizontal-scroll w-full overflow-x-auto overflow-y-visible relative z-10 flex items-center pt-10 pb-16 px-4"
+        style={{ scrollBehavior: 'smooth' }}
+      >
         style={{ scrollBehavior: 'smooth' }}
       >
         <div className="relative flex h-[260px] min-w-max select-none mx-auto pl-12 pr-12">
@@ -111,7 +115,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
               const width = Math.max(55, 95 - (fretNum * 2.2));
               return (
                 <div key={`fret-col-${fretNum}`} className="relative h-full border-r-[2px] border-[#475569] flex flex-col justify-between shrink-0 bg-[#1e293b]" style={{ width: `${width}px` }}>
-                  {showFretNumbers && <div className="absolute -bottom-8 left-0 w-full text-center"><span className="text-xs font-bold text-[#64748b] font-mono">{fretNum}</span></div>}
+                  {showFretNumbers && <div className="absolute -bottom-10 left-0 w-full text-center"><span className="text-sm font-bold text-slate-400 font-mono">{fretNum}</span></div>}
                   {showInlays && INLAYS.includes(fretNum) && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       {fretNum === 12 || fretNum === 24 ? <div className="flex flex-col gap-8"><div className="w-3 h-3 rounded-full bg-[#e2e8f0] shadow-sm"></div><div className="w-3 h-3 rounded-full bg-[#e2e8f0] shadow-sm"></div></div> : <div className="w-4 h-4 rounded-full bg-[#e2e8f0] shadow-sm"></div>}
