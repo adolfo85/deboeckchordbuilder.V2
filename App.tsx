@@ -4,7 +4,6 @@ import { Fretboard } from './components/Fretboard';
 import { ChordSnapshot } from './components/ChordSnapshot';
 import { NoteData, SavedChord, ChordStyle, GraphicObject } from './types';
 import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes } from './utils/theory';
-import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info } from 'lucide-react';
 import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info, BookOpen, Layout } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -109,7 +108,7 @@ const App: React.FC = () => {
         setSelectedNotes(prev => prev.map(n => n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber ? { ...n, accidental: n.accidental === 'b' ? '#' : 'b' } : n));
     };
     const captureChord = () => {
-        if (capturedChords.length >= 6) {
+        if (savedChords.length >= 6) {
             alert("Has alcanzado el límite de 6 acordes por hoja. Por favor, borra los acordes existentes o exporta tu documento antes de agregar más.");
             return;
         }
