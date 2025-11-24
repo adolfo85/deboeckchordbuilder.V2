@@ -105,12 +105,12 @@ export const Fretboard: React.FC<FretboardProps> = ({
             })}
           </div>
 
-          <div className="relative flex h-full border-4 border-slate-800 bg-[#1e293b] shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-lg overflow-hidden">
+          <div className="relative flex h-full border-4 border-slate-800 bg-[#1e293b] shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-lg">
             {Array.from({ length: fretCount }).map((_, i) => {
               const fretNum = i + 1;
               const width = Math.max(45, 80 - (fretNum * 1.8));
               return (
-                <div key={`fret-col-${fretNum}`} className="relative h-full border-r-[2px] border-[#475569] flex flex-col justify-between shrink-0 bg-[#1e293b]" style={{ width: `${width}px` }}>
+                <div key={`fret-col-${fretNum}`} className="relative h-full border-r-[2px] border-[#475569] flex flex-col justify-between shrink-0 bg-[#1e293b] first:rounded-l-[4px] last:rounded-r-[4px]" style={{ width: `${width}px` }}>
                   {showFretNumbers && <div className="absolute -bottom-10 left-0 w-full text-center z-50"><span className="text-sm font-bold text-slate-600 font-mono">{fretNum}</span></div>}
                   {showInlays && INLAYS.includes(fretNum) && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
