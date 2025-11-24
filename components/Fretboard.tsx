@@ -63,11 +63,7 @@ export const Fretboard: React.FC<FretboardProps> = ({
 
       <div
         ref={scrollRef}
-      <div
-        ref={scrollRef}
         className="horizontal-scroll w-full overflow-x-auto overflow-y-visible relative z-10 flex items-center pt-10 pb-16 px-4"
-        style={{ scrollBehavior: 'smooth' }}
-      >
         style={{ scrollBehavior: 'smooth' }}
       >
         <div className="relative flex h-[260px] min-w-max select-none mx-auto pl-12 pr-12">
