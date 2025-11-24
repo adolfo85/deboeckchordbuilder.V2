@@ -58,8 +58,8 @@ export const Fretboard: React.FC<FretboardProps> = ({
   const visualStrings = Array.from({ length: tuning.stringCount }, (_, i) => (tuning.stringCount - 1) - i);
 
   return (
-    <div className="w-full h-full flex flex-col justify-center bg-slate-800 relative shadow-2xl overflow-hidden">
-      <div className="absolute inset-0 bg-slate-800"></div>
+    <div className="w-full h-full flex flex-col justify-center bg-[#f5f5dc] relative shadow-none">
+      <div className="absolute inset-0 bg-[#f5f5dc]"></div>
 
       <div
         ref={scrollRef}
@@ -108,10 +108,10 @@ export const Fretboard: React.FC<FretboardProps> = ({
           <div className="relative flex h-full border-r-4 border-slate-700 bg-[#1e293b] shadow-2xl">
             {Array.from({ length: fretCount }).map((_, i) => {
               const fretNum = i + 1;
-              const width = Math.max(55, 95 - (fretNum * 2.2));
+              const width = Math.max(45, 80 - (fretNum * 1.8));
               return (
                 <div key={`fret-col-${fretNum}`} className="relative h-full border-r-[2px] border-[#475569] flex flex-col justify-between shrink-0 bg-[#1e293b]" style={{ width: `${width}px` }}>
-                  {showFretNumbers && <div className="absolute -bottom-10 left-0 w-full text-center z-50"><span className="text-sm font-bold text-white font-mono drop-shadow-md">{fretNum}</span></div>}
+                  {showFretNumbers && <div className="absolute -bottom-10 left-0 w-full text-center z-50"><span className="text-sm font-bold text-slate-600 font-mono">{fretNum}</span></div>}
                   {showInlays && INLAYS.includes(fretNum) && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       {fretNum === 12 || fretNum === 24 ? <div className="flex flex-col gap-8"><div className="w-3 h-3 rounded-full bg-[#e2e8f0] shadow-sm"></div><div className="w-3 h-3 rounded-full bg-[#e2e8f0] shadow-sm"></div></div> : <div className="w-4 h-4 rounded-full bg-[#e2e8f0] shadow-sm"></div>}
