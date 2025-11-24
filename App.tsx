@@ -166,9 +166,17 @@ const App: React.FC = () => {
                 {/* --- EDITOR MODE --- */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${viewMode === 'editor' ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex-grow relative flex flex-col items-center justify-start pt-4 overflow-y-auto" ref={fretboardContainerRef}>
-                        <div className="z-40 mb-2 mt-4"><div className="bg-indigo-600 rounded-lg px-8 py-3 shadow-lg flex flex-col items-center min-w-[200px]"><span className="text-[10px] uppercase font-bold mb-1 text-indigo-200">Acorde</span><div className="text-3xl font-black text-white tracking-tight">{detectedChord || <span className="text-indigo-400">---</span>}</div></div></div>
+                        <div className="z-40 mb-4 mt-4 flex items-center gap-4">
+                            <div className="bg-indigo-600 border border-[#1e293b] rounded-lg px-8 py-3 shadow-lg flex flex-col items-center min-w-[200px]">
+                                <span className="text-[10px] uppercase font-bold mb-1 text-indigo-200">Acorde</span>
+                                <div className="text-3xl font-black text-white tracking-tight">{detectedChord || <span className="text-indigo-400">---</span>}</div>
+                            </div>
+                            <button onClick={captureChord} disabled={selectedNotes.length === 0} className="flex flex-col items-center justify-center gap-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 border border-[#1e293b] text-white font-bold rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:scale-95 hover:scale-105 h-full min-w-[120px]">
+                                <Camera size={24} />
+                                <span className="text-[10px] uppercase">Capturar</span>
+                            </button>
+                        </div>
                         <Fretboard tuning={tuning} rootNote={rootNote} selectedNotes={selectedNotes} onToggleNote={handleToggleNote} onNoteClick={handleNoteClick} noteDisplayMode={noteDisplayMode} useFlats={useFlats} accentColor={accentColor} showFretNumbers={showFretNumbers} showInlays={showInlays} startFret={1} fretCount={fretCount} showGhostNotes={false} />
-                        <div className="mt-2 mb-2 flex justify-center z-50"><button onClick={captureChord} disabled={selectedNotes.length === 0} className="flex items-center gap-3 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:scale-95 hover:scale-105"><Camera size={20} /> <span>Capturar Diagrama</span></button></div>
                     </div>
                     <div className="bg-slate-900 border-t border-slate-800 flex flex-col z-50 h-[280px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
                         {/* ... Inspector Tabs and Content ... */}
