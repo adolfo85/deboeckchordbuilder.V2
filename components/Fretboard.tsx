@@ -77,12 +77,12 @@ export const Fretboard: React.FC<FretboardProps> = ({
               const stringName = getNoteDisplay(rawNoteInfo.note, useFlats);
 
               let label = stringName;
-              let noteClass = "bg-white text-slate-700 border-2 border-slate-300 hover:bg-slate-50 w-9 h-9 shadow-sm";
+              let noteClass = "bg-white text-slate-700 border-2 border-slate-300 hover:bg-slate-50 w-8 h-8 shadow-sm";
               let sizeClass = "";
 
               if (noteData) {
                 const isRoot = rootNote && noteData.stringIndex === rootNote.stringIndex && noteData.fretNumber === rootNote.fretNumber;
-                sizeClass = isRoot ? "w-10 h-10 text-sm z-50" : "w-10 h-10 text-sm z-40";
+                sizeClass = isRoot ? "w-9 h-9 text-sm z-50" : "w-9 h-9 text-sm z-40";
 
                 if (isRoot) {
                   label = noteDisplayMode === 'intervals' ? "F" : stringName;
@@ -97,9 +97,8 @@ export const Fretboard: React.FC<FretboardProps> = ({
               }
 
               return (
-                <div key={`nut-${stringIdx}`} className="h-1/6 flex items-center justify-center w-16 -ml-16 pr-5 relative z-50 cursor-pointer group" onClick={() => onToggleNote(stringIdx, 0)}>
-                  <div className="absolute left-2 text-[10px] font-bold text-slate-500 w-4 text-center">{stringName}</div>
-                  <div className={`rounded-full flex items-center justify-center font-bold transition-all duration-200 ${noteClass} ${sizeClass}`} onClick={(e) => { if (noteData) { e.stopPropagation(); onNoteClick(noteData); } }}>{noteData ? label : (showGhostNotes ? stringName : '')}</div>
+                <div key={`nut-${stringIdx}`} className="h-1/6 flex items-center justify-end w-16 -ml-16 pr-5 relative z-50 cursor-pointer group" onClick={() => onToggleNote(stringIdx, 0)}>
+                  <div className={`rounded-full flex items-center justify-center font-bold transition-all duration-200 ${noteClass} ${sizeClass}`} onClick={(e) => { if (noteData) { e.stopPropagation(); onNoteClick(noteData); } }}>{noteData ? label : stringName}</div>
                 </div>
               );
             })}

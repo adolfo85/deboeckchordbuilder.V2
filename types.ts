@@ -14,7 +14,7 @@ export enum NoteName {
 }
 
 export interface FretPosition {
-  stringIndex: number; 
+  stringIndex: number;
   fretNumber: number;
 }
 
@@ -39,6 +39,8 @@ export interface ChordStyle {
   noteColor: string; // Color for intervals
   rootColor: string; // Color for fundamental
   noteSize: number; // Scale multiplier
+  fontFamily?: string;
+  fontSize?: number;
 }
 
 export interface SavedChord extends Partial<ChordStyle> {
@@ -51,12 +53,18 @@ export interface SavedChord extends Partial<ChordStyle> {
   useFlats: boolean;
   instrument: string;
   tuningId: string;
+  x: number;
+  y: number;
+  type?: 'chord' | 'scale';
+  scaleRoot?: NoteData;
+  scaleType?: string;
+  fretRange?: { start: number; end: number };
 }
 
 export interface TuningDefinition {
   id: string;
   name: string;
-  offsets: number[]; 
+  offsets: number[];
   stringCount: number;
 }
 
@@ -76,4 +84,5 @@ export interface GraphicObject {
   fontSize?: number;
   fontFamily?: string;
   fontWeight?: 'normal' | 'bold';
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
 }

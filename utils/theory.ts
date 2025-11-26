@@ -253,4 +253,35 @@ export const playNotes = (notes: NoteData[]) => {
   setTimeout(() => ctx.close(), 2500);
 };
 
-export const getScaleNotes = (rootAbsolute: number, scaleType: string): number[] => [];
+export const SCALE_TYPES: Record<string, { name: string, intervals: number[] }> = {
+  'major': { name: 'Mayor', intervals: [0, 2, 4, 5, 7, 9, 11] },
+  'minor': { name: 'Menor Natural', intervals: [0, 2, 3, 5, 7, 8, 10] },
+  'pentatonic_major': { name: 'Pentatónica Mayor', intervals: [0, 2, 4, 7, 9] },
+  'pentatonic_minor': { name: 'Pentatónica Menor', intervals: [0, 3, 5, 7, 10] },
+  'blues': { name: 'Blues', intervals: [0, 3, 5, 6, 7, 10] },
+  'dorian': { name: 'Dórico', intervals: [0, 2, 3, 5, 7, 9, 10] },
+  'phrygian': { name: 'Frigio', intervals: [0, 1, 3, 5, 7, 8, 10] },
+  'lydian': { name: 'Lidio', intervals: [0, 2, 4, 6, 7, 9, 11] },
+  'mixolydian': { name: 'Mixolidio', intervals: [0, 2, 4, 5, 7, 9, 10] },
+  'locrian': { name: 'Locrio', intervals: [0, 1, 3, 5, 6, 8, 10] },
+  'harmonic_minor': { name: 'Menor Armónica', intervals: [0, 2, 3, 5, 7, 8, 11] },
+  'melodic_minor': { name: 'Menor Melódica', intervals: [0, 2, 3, 5, 7, 9, 11] },
+};
+
+export const getScaleNotes = (rootAbsolute: number, scaleType: string): number[] => {
+  const scale = SCALE_TYPES[scaleType];
+  if (!scale) return [];
+  return scale.intervals.map(interval => (rootAbsolute + interval) % 12);
+};
+
+export const getScaleNoteName = (rootNote: NoteData, noteAbsolute: number, scaleType: string): string => {
+  // Simple logic for now: use sharps for sharp keys, flats for flat keys
+  // A more robust implementation would use the circle of fifths and scale degrees
+  const rootName = rootNote.note;
+  const useFlats = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(rootName) || (rootName === 'C' && scaleType.includes('minor'));
+
+  const noteIndex = noteAbsolute % 12;
+  const noteName = NOTES[noteIndex];
+
+  return getNoteDisplay(noteName, useFlats);
+};

@@ -1,10 +1,11 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { Fretboard } from './components/Fretboard';
+import { ScaleFretboard } from './components/ScaleFretboard';
 import { ChordSnapshot } from './components/ChordSnapshot';
 import { NoteData, SavedChord, ChordStyle, GraphicObject } from './types';
-import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes } from './utils/theory';
-import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info, BookOpen, Layout } from 'lucide-react';
+import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes, SCALE_TYPES, getScaleNotes, getScaleNoteName } from './utils/theory';
+import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info, BookOpen, Layout, AlignLeft, AlignCenter, AlignRight, AlignJustify, Music } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 // --- MANUAL COMPONENT ---
@@ -86,6 +87,11 @@ const ManualModal = ({ onClose }: { onClose: () => void }) => (
                     <p className="text-sm">Una vez terminada tu hoja, haz click en <strong>"Exportar A4"</strong>. Se generará una imagen de alta calidad (PNG) lista para imprimir o compartir digitalmente.</p>
                 </section>
 
+                <div className="mt-8 p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-800 flex items-start gap-3">
+                    <Info className="shrink-0 mt-0.5" size={18} />
+                    <p><strong>Nota:</strong> Para brindar tus recomendaciones y sugerencias tras tu experiencia de usuario, podés escribirnos al correo: <a href="mailto:adolfodeboeck@gmail.com" className="underline font-bold hover:text-indigo-900">adolfodeboeck@gmail.com</a>.</p>
+                </div>
+
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end sticky bottom-0 z-10">
@@ -114,16 +120,21 @@ const App: React.FC = () => {
     const [docToolMode, setDocToolMode] = useState<'general' | 'particular' | 'graphics'>('general');
     const [selectedChordId, setSelectedChordId] = useState<string | null>(null);
     const [selectedGraphicId, setSelectedGraphicId] = useState<string | null>(null);
-    const [globalStyle, setGlobalStyle] = useState<ChordStyle>({ noteShape: 'circle', noteColor: 'default', rootColor: '#000000', noteSize: 1 });
+    const [globalStyle, setGlobalStyle] = useState<ChordStyle>({ noteShape: 'circle', noteColor: 'default', rootColor: '#000000', noteSize: 1, fontFamily: 'Sans', fontSize: 1 });
     const [graphics, setGraphics] = useState<GraphicObject[]>([]);
     const [activeTab, setActiveTab] = useState<'editor' | 'appearance'>('editor');
-    const [viewMode, setViewMode] = useState<'editor' | 'document'>('editor');
+    const [viewMode, setViewMode] = useState<'editor' | 'document' | 'scales'>('editor');
     const [dismissedSuggestion, setDismissedSuggestion] = useState<string>("");
     const [draggedChordIndex, setDraggedChordIndex] = useState<number | null>(null);
     const fretboardContainerRef = useRef<HTMLDivElement>(null);
     const documentRef = useRef<HTMLDivElement>(null);
 
     // ... Handlers ...
+    const [selectedScaleRoot, setSelectedScaleRoot] = useState<NoteData | null>(null);
+    const [selectedScaleType, setSelectedScaleType] = useState<string>('major');
+    const [scaleStartFret, setScaleStartFret] = useState<number>(0);
+    const [scaleEndFret, setScaleEndFret] = useState<number>(12);
+
     const handleToggleNote = useCallback((stringIndex: number, fret: number) => {
         const noteInfo = getNoteAtPosition(stringIndex, fret, 'standard');
         const newNote: NoteData = { stringIndex, fretNumber: fret, note: noteInfo.note, absoluteSemitone: noteInfo.absolute, octave: noteInfo.octave, isRoot: false, accidental: useFlats ? 'b' : '#' };
@@ -149,17 +160,94 @@ const App: React.FC = () => {
     };
     const captureChord = () => {
         if (savedChords.length >= 9) {
-            alert("Has alcanzado el límite de 9 acordes por hoja. Por favor, borra los acordes existentes o exporta tu documento antes de agregar más.");
+            alert("Has alcanzado el límite de 9 elementos por hoja. Por favor, borra los elementos existentes o exporta tu documento antes de agregar más.");
             return;
         }
         if (selectedNotes.length === 0) return;
-        const newChord: SavedChord = { id: Date.now().toString(), name: detectChordName(rootNote!, selectedNotes, useFlats) || "Sin nombre", notes: [...selectedNotes], rootNote: rootNote ? { ...rootNote } : null, date: Date.now(), showIntervals: noteDisplayMode === 'intervals', useFlats, instrument: 'guitar', tuningId: 'standard' };
+
+        // Calculate initial position (Grid-like placement)
+        const count = savedChords.length;
+        const col = count % 3;
+        const row = Math.floor(count / 3);
+        const startX = 50;
+        const startY = 220; // Adjusted to clear header
+        const gapX = 20;
+        const gapY = 40;
+        const width = 220; // Increased width
+        const height = 300; // Increased height
+
+        const x = startX + col * (width + gapX);
+        const y = startY + row * (height + gapY);
+
+        const newChord: SavedChord = { id: Date.now().toString(), name: detectChordName(rootNote!, selectedNotes, useFlats) || "Sin nombre", notes: [...selectedNotes], rootNote: rootNote ? { ...rootNote } : null, date: Date.now(), showIntervals: noteDisplayMode === 'intervals', useFlats, instrument: 'guitar', tuningId: 'standard', x, y };
         setSavedChords(prev => [...prev, newChord]); setViewMode('document');
     };
+
+    const captureScale = () => {
+        if (!selectedScaleRoot) return;
+        if (savedChords.length >= 9) {
+            alert("Has alcanzado el límite de 9 elementos por hoja.");
+            return;
+        }
+
+        const count = savedChords.length;
+        // Scales take up a full row, so we force them to start on a new row if possible or just append
+        // Logic: Find the next available Y that clears existing items. 
+        // For simplicity, we'll use the same grid logic but ensure it takes full width visually.
+        // Actually, user wants it to occupy "space of 3 chords".
+
+        const startX = 50;
+        const startY = 220;
+        const gapY = 40;
+        const height = 300;
+
+        // Find the lowest Y currently occupied
+        let maxY = startY - (height + gapY);
+        savedChords.forEach(c => {
+            if (c.y > maxY) maxY = c.y;
+        });
+
+        const nextY = maxY + (height + gapY);
+
+        const newScale: SavedChord = {
+            id: Date.now().toString(),
+            name: `${getScaleNoteName(selectedScaleRoot, selectedScaleRoot.absoluteSemitone, selectedScaleType)} ${SCALE_TYPES[selectedScaleType].name}`,
+            notes: [], // Scales don't store individual notes like chords, they generate them
+            rootNote: selectedScaleRoot,
+            date: Date.now(),
+            showIntervals: false,
+            useFlats,
+            instrument: 'guitar',
+            tuningId: 'standard',
+            x: startX,
+            y: nextY,
+            type: 'scale',
+            scaleRoot: selectedScaleRoot,
+            scaleType: selectedScaleType,
+            fretRange: { start: scaleStartFret, end: scaleEndFret }
+        };
+
+        setSavedChords(prev => [...prev, newScale]);
+        setViewMode('document');
+    };
+
     const updateSelectedChordStyle = (key: keyof ChordStyle, value: any) => { if (!selectedChordId) return; setSavedChords(prev => prev.map(c => c.id === selectedChordId ? { ...c, [key]: value } : c)); };
+
+    const handleChordDragStart = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation(); setSelectedChordId(id); setDocToolMode('particular'); setSelectedGraphicId(null);
+        const chord = savedChords.find(c => c.id === id); if (!chord) return;
+        const startX = e.clientX; const startY = e.clientY; const initX = chord.x; const initY = chord.y;
+        const onMouseMove = (ev: MouseEvent) => {
+            const newX = initX + (ev.clientX - startX);
+            const newY = initY + (ev.clientY - startY);
+            setSavedChords(prev => prev.map(c => c.id === id ? { ...c, x: newX, y: newY } : c));
+        };
+        const onMouseUp = () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+        window.addEventListener('mousemove', onMouseMove); window.addEventListener('mouseup', onMouseUp);
+    };
     const addGraphic = (type: 'square' | 'circle' | 'arrow' | 'text') => {
         const width = type === 'arrow' ? 40 : (type === 'text' ? 120 : 60); const height = type === 'arrow' ? 100 : (type === 'text' ? 40 : 60);
-        const newGraphic: GraphicObject = { id: Date.now().toString(), type, x: 50, y: 50, width, height, rotation: 0, color: type === 'text' ? '#000000' : '#ef4444', filled: true, opacity: type === 'text' ? 1 : 0.8, text: type === 'text' ? 'Texto' : undefined, fontSize: 24, fontFamily: 'Sans', fontWeight: 'normal' };
+        const newGraphic: GraphicObject = { id: Date.now().toString(), type, x: 50, y: 50, width, height, rotation: 0, color: type === 'text' ? '#000000' : '#ef4444', filled: true, opacity: type === 'text' ? 1 : 0.8, text: type === 'text' ? 'Texto' : undefined, fontSize: 24, fontFamily: 'Sans', fontWeight: 'normal', textAlign: 'center' };
         setGraphics(prev => [...prev, newGraphic]); setSelectedGraphicId(newGraphic.id);
     };
     const updateGraphic = (id: string, key: keyof GraphicObject, value: any) => { setGraphics(prev => prev.map(g => g.id === id ? { ...g, [key]: value } : g)); };
@@ -192,7 +280,7 @@ const App: React.FC = () => {
         const w = g.width; const h = g.height;
         let headLen = w * 0.8; if (headLen > h * 0.6) headLen = h * 0.6; if (headLen < 10 && h > 20) headLen = 10;
         const shaftWidth = w * 0.4; const shaftLeft = (w - shaftWidth) / 2; const shaftRight = (w + shaftWidth) / 2;
-        return (<svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}><path d={`M ${w / 2} 0 L ${w} ${headLen} L ${shaftRight} ${headLen} L ${shaftRight} ${h} L ${shaftLeft} ${h} L ${shaftLeft} ${headLen} L 0 ${headLen} Z`} fill={g.filled ? g.color : 'none'} stroke={g.color} strokeWidth={g.filled ? "0" : "2"} strokeLinejoin="round" /></svg>);
+        return (<svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}><path d={`M ${w / 2} 0 L ${w} ${headLen} L ${shaftRight} ${headLen} L ${shaftRight} ${h} L ${shaftLeft} ${h} L 0 ${headLen} Z`} fill={g.filled ? g.color : 'none'} stroke={g.color} strokeWidth={g.filled ? "0" : "2"} strokeLinejoin="round" /></svg>);
     };
     const getFontFamily = (font: string | undefined) => {
         if (font === 'Opus') return "'Opus Plain Chord Std', 'Times New Roman', serif";
@@ -206,9 +294,10 @@ const App: React.FC = () => {
             {/* HEADER */}
             <div className="bg-slate-900 border-b border-slate-800 p-3 flex items-center justify-between z-50 shadow-md shrink-0 h-16">
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 cursor-pointer select-none"><span className="text-xl font-black tracking-tight"><span className="text-yellow-400">DeBoeck</span><span className="text-white">Chord</span><span className="text-yellow-400">Builder</span></span></div>
+                    <div className="flex items-center gap-2 cursor-pointer select-none"><span className="text-xl font-black tracking-tight"><span className="text-yellow-400">DeBoeck</span><span className="text-white">Chord</span><span className="text-yellow-400">Builder</span> <span className="text-xs text-slate-400 font-normal ml-1">V.1.1</span></span></div>
                     <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700 ml-4">
-                        <button onClick={() => setViewMode('editor')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'editor' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Guitar size={14} /> Editor</button>
+                        <button onClick={() => setViewMode('editor')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'editor' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Guitar size={14} /> Edición de acordes</button>
+                        <button onClick={() => setViewMode('scales')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'scales' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Music size={14} /> Escalas</button>
                         <button onClick={() => setViewMode('document')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'document' ? 'bg-white text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}><FileText size={14} /> Documento</button>
                     </div>
                     <div className="hidden xl:flex items-center gap-4 ml-4 border-l border-slate-700 pl-4"><span className="text-[10px] text-slate-400 italic leading-tight max-w-[300px]">Esta app fue diseñada para complementar el material del libro "principios del chord-melody" del prof. A. C. De Boeck</span></div>
@@ -220,7 +309,7 @@ const App: React.FC = () => {
             </div>
 
             {/* CONTENT */}
-            <div className="flex-grow relative overflow-hidden bg-white flex flex-col">
+            <div className="flex-grow relative overflow-hidden bg-slate-950 flex flex-col">
 
                 {/* --- EDITOR MODE --- */}
                 <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${viewMode === 'editor' ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -260,6 +349,64 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
+                {/* SCALES EDITOR */}
+                {viewMode === 'scales' && (
+                    <div className="flex-grow flex flex-col overflow-hidden relative">
+                        {/* Removed radial gradient to match app aesthetic */}
+
+                        <div className="flex-grow flex flex-col items-center justify-center p-8 z-10 relative">
+                            <div className="w-full max-w-5xl mb-6 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-3xl font-black text-white tracking-tight">Editor de Escalas</h2>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={captureScale} disabled={!selectedScaleRoot} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-900/50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"><Camera size={20} /> Capturar Escala</button>
+                                </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="w-full max-w-5xl flex flex-wrap items-center gap-6 mb-6">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Fundamental</label>
+                                    <div className="flex gap-1">
+                                        {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map((note, idx) => (
+                                            <button key={note}
+                                                onClick={() => setSelectedScaleRoot({ note: note as any, octave: 3, absoluteSemitone: idx, stringIndex: 5, fretNumber: 0, isRoot: true, accidental: useFlats ? 'b' : '#' })}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${selectedScaleRoot?.absoluteSemitone === idx ? 'bg-indigo-600 text-white shadow' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}
+                                            >
+                                                {note}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-1 min-w-[200px]">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Tipo de Escala</label>
+                                    <select value={selectedScaleType} onChange={(e) => setSelectedScaleType(e.target.value)} className="bg-slate-800 text-white text-sm rounded-md px-3 py-2 border border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        {Object.entries(SCALE_TYPES).map(([key, val]) => (
+                                            <option key={key} value={key}>{val.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Rango de Trastes</label>
+                                    <div className="flex items-center gap-2">
+                                        <input type="number" min="0" max="12" value={scaleStartFret} onChange={(e) => setScaleStartFret(parseInt(e.target.value))} className="w-12 bg-slate-800 text-white text-sm rounded-md px-2 py-1 border border-slate-700 text-center" />
+                                        <span className="text-slate-500">-</span>
+                                        <input type="number" min="0" max="12" value={scaleEndFret} onChange={(e) => setScaleEndFret(parseInt(e.target.value))} className="w-12 bg-slate-800 text-white text-sm rounded-md px-2 py-1 border border-slate-700 text-center" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Fretboard Visualization */}
+                            <div className="w-full max-w-5xl">
+                                <ScaleFretboard rootNote={selectedScaleRoot} scaleType={selectedScaleType} useFlats={useFlats} startFret={scaleStartFret} endFret={scaleEndFret} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* --- DOCUMENT MODE --- */}
                 <div className={`absolute inset-0 flex flex-col bg-slate-900 transition-transform duration-300 ${viewMode === 'document' ? 'translate-x-0' : 'translate-x-full'}`}>
                     <div className="bg-slate-800 border-b border-slate-700 p-2 flex flex-col gap-2 shrink-0 z-20 shadow-lg">
@@ -282,7 +429,22 @@ const App: React.FC = () => {
                                     <div className="flex items-center gap-2 border-r border-slate-600 pr-4"><span className="text-[10px] uppercase font-bold text-slate-500">Intervalos</span><button onClick={() => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, noteColor: 'default' }) : updateSelectedChordStyle('noteColor', 'default')} className="w-4 h-4 rounded border border-slate-500 bg-white" title="Default"></button>{COLORS.filter(c => c !== '#ffffff').map(c => <button key={`int-${c}`} onClick={() => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, noteColor: c }) : updateSelectedChordStyle('noteColor', c)} className="w-4 h-4 rounded-full border border-slate-600" style={{ backgroundColor: c }}></button>)}</div>
                                     {/* ROOT COLOR */}
                                     <div className="flex items-center gap-2 border-r border-slate-600 pr-4"><span className="text-[10px] uppercase font-bold text-slate-500">Fundamental</span>{COLORS.map(c => <button key={`root-${c}`} onClick={() => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, rootColor: c }) : updateSelectedChordStyle('rootColor', c)} className="w-4 h-4 rounded-full border border-slate-600" style={{ backgroundColor: c }}></button>)}</div>
-                                    <div className="flex items-center gap-2"><span className="text-[10px] uppercase font-bold text-slate-500">Tamaño</span><input type="range" min="0.5" max="1.5" step="0.1" value={docToolMode === 'general' ? globalStyle.noteSize : 1} onChange={(e) => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, noteSize: parseFloat(e.target.value) }) : updateSelectedChordStyle('noteSize', parseFloat(e.target.value))} className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" /></div>
+                                    <div className="flex items-center gap-2 border-r border-slate-600 pr-4"><span className="text-[10px] uppercase font-bold text-slate-500">Tamaño</span><input type="range" min="0.5" max="1.5" step="0.1" value={docToolMode === 'general' ? globalStyle.noteSize : 1} onChange={(e) => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, noteSize: parseFloat(e.target.value) }) : updateSelectedChordStyle('noteSize', parseFloat(e.target.value))} className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" /></div>
+
+                                    {/* FONT CONTROLS */}
+                                    <div className="flex items-center gap-2 border-r border-slate-600 pr-4">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500">Fuente</span>
+                                        <select value={docToolMode === 'general' ? globalStyle.fontFamily : 'Sans'} onChange={(e) => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, fontFamily: e.target.value }) : updateSelectedChordStyle('fontFamily', e.target.value)} className="bg-slate-900 border border-slate-600 rounded text-xs h-6 px-1">
+                                            <option value="Sans">Sans</option>
+                                            <option value="Serif">Serif</option>
+                                            <option value="Mono">Mono</option>
+                                            <option value="Opus">Opus</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500">T. Texto</span>
+                                        <input type="range" min="0.5" max="2.0" step="0.1" value={docToolMode === 'general' ? globalStyle.fontSize : 1} onChange={(e) => docToolMode === 'general' ? setGlobalStyle({ ...globalStyle, fontSize: parseFloat(e.target.value) }) : updateSelectedChordStyle('fontSize', parseFloat(e.target.value))} className="w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
+                                    </div>
                                 </>
                             )}
                             {docToolMode === 'graphics' && (
@@ -290,7 +452,23 @@ const App: React.FC = () => {
                                     <div className="flex items-center gap-2 border-r border-slate-600 pr-4"><button onClick={() => addGraphic('square')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Square size={14} /> +Cuadrado</button><button onClick={() => addGraphic('circle')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Circle size={14} /> +Círculo</button><button onClick={() => addGraphic('arrow')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Move size={14} /> +Flecha</button><button onClick={() => addGraphic('text')} className="flex gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-bold"><Type size={14} /> +Texto</button></div>
                                     {selectedGraphicId ? (
                                         <div className="flex items-center gap-3">
-                                            {selectedGraphic?.type === 'text' && (<><div className="flex flex-col w-24"><span className="text-[8px] uppercase text-slate-500">Contenido</span><input type="text" value={selectedGraphic.text} onChange={(e) => updateGraphic(selectedGraphicId, 'text', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-xs px-1 h-5" /></div><div className="flex flex-col w-16"><span className="text-[8px] uppercase text-slate-500">Fuente</span><select value={selectedGraphic.fontFamily} onChange={(e) => updateGraphic(selectedGraphicId, 'fontFamily', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-xs h-5"><option value="Opus">Opus</option><option value="Sans">Sans</option><option value="Serif">Serif</option><option value="Mono">Mono</option></select></div><div className="flex flex-col items-center"><span className="text-[8px] uppercase text-slate-500">Bold</span><button onClick={() => updateGraphic(selectedGraphicId, 'fontWeight', selectedGraphic.fontWeight === 'bold' ? 'normal' : 'bold')} className={`p-0.5 rounded ${selectedGraphic.fontWeight === 'bold' ? 'bg-indigo-600' : 'bg-slate-700'}`}><Bold size={12} /></button></div><div className="flex flex-col items-center w-16"><span className="text-[8px] uppercase text-slate-500">Tamaño</span><input type="range" min="8" max="72" value={selectedGraphic.fontSize} onChange={(e) => updateGraphic(selectedGraphicId, 'fontSize', parseInt(e.target.value))} className="w-full h-1" /></div></>)}
+                                            {selectedGraphic?.type === 'text' && (
+                                                <>
+                                                    <div className="flex flex-col w-24"><span className="text-[8px] uppercase text-slate-500">Contenido</span><input type="text" value={selectedGraphic.text} onChange={(e) => updateGraphic(selectedGraphicId, 'text', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-xs px-1 h-5" /></div>
+                                                    <div className="flex flex-col w-16"><span className="text-[8px] uppercase text-slate-500">Fuente</span><select value={selectedGraphic.fontFamily} onChange={(e) => updateGraphic(selectedGraphicId, 'fontFamily', e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded text-xs h-5"><option value="Opus">Opus</option><option value="Sans">Sans</option><option value="Serif">Serif</option><option value="Mono">Mono</option></select></div>
+                                                    <div className="flex flex-col items-center"><span className="text-[8px] uppercase text-slate-500">Bold</span><button onClick={() => updateGraphic(selectedGraphicId, 'fontWeight', selectedGraphic.fontWeight === 'bold' ? 'normal' : 'bold')} className={`p-0.5 rounded ${selectedGraphic.fontWeight === 'bold' ? 'bg-indigo-600' : 'bg-slate-700'}`}><Bold size={12} /></button></div>
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <span className="text-[8px] uppercase text-slate-500">Alineación</span>
+                                                        <div className="flex gap-0.5">
+                                                            <button onClick={() => updateGraphic(selectedGraphicId, 'textAlign', 'left')} className={`p-0.5 rounded ${selectedGraphic.textAlign === 'left' ? 'bg-indigo-600' : 'bg-slate-700'}`}><AlignLeft size={12} /></button>
+                                                            <button onClick={() => updateGraphic(selectedGraphicId, 'textAlign', 'center')} className={`p-0.5 rounded ${selectedGraphic.textAlign === 'center' || !selectedGraphic.textAlign ? 'bg-indigo-600' : 'bg-slate-700'}`}><AlignCenter size={12} /></button>
+                                                            <button onClick={() => updateGraphic(selectedGraphicId, 'textAlign', 'right')} className={`p-0.5 rounded ${selectedGraphic.textAlign === 'right' ? 'bg-indigo-600' : 'bg-slate-700'}`}><AlignRight size={12} /></button>
+                                                            <button onClick={() => updateGraphic(selectedGraphicId, 'textAlign', 'justify')} className={`p-0.5 rounded ${selectedGraphic.textAlign === 'justify' ? 'bg-indigo-600' : 'bg-slate-700'}`}><AlignJustify size={12} /></button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-center w-16"><span className="text-[8px] uppercase text-slate-500">Tamaño</span><input type="range" min="8" max="72" value={selectedGraphic.fontSize} onChange={(e) => updateGraphic(selectedGraphicId, 'fontSize', parseInt(e.target.value))} className="w-full h-1" /></div>
+                                                </>
+                                            )}
                                             <div className="flex flex-col items-center"><span className="text-[8px] uppercase text-slate-500 mb-1">Color</span><div className="flex gap-1">{COLORS.map(c => <button key={c} onClick={() => updateGraphic(selectedGraphicId, 'color', c)} className="w-3 h-3 rounded-full" style={{ backgroundColor: c }}></button>)}</div></div>
                                             {selectedGraphic?.type !== 'text' && (<div className="flex flex-col items-center w-16"><span className="text-[8px] uppercase text-slate-500">Opacidad</span><input type="range" min="0.1" max="1" step="0.1" onChange={(e) => updateGraphic(selectedGraphicId, 'opacity', parseFloat(e.target.value))} className="w-full h-1" /></div>)}
                                             <div className="flex flex-col items-center w-16"><span className="text-[8px] uppercase text-slate-500 flex gap-1"><RotateCw size={8} /> Rotación</span><input type="range" min="0" max="360" value={selectedGraphic?.rotation || 0} onChange={(e) => updateGraphic(selectedGraphicId, 'rotation', parseInt(e.target.value))} className="w-full h-1" /></div>
@@ -307,13 +485,13 @@ const App: React.FC = () => {
                     {/* CANVAS */}
                     <div className="flex-grow overflow-auto bg-slate-800 flex justify-center p-8 relative" onClick={() => { setSelectedChordId(null); setSelectedGraphicId(null); }}>
                         {/* Gap set to 10px for 4 items */}
-                        <div ref={documentRef} className="bg-white text-black shadow-2xl relative transition-transform origin-top" style={{ width: '210mm', minHeight: '297mm', padding: '20mm', display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: '10px' }}>
+                        <div ref={documentRef} className="bg-white text-black shadow-2xl relative transition-transform origin-top" style={{ width: '210mm', minHeight: '297mm', padding: '20mm', position: 'relative' }}>
                             {/* Graphics Layer - Z-Index 20 */}
                             <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none">
                                 {graphics.map(g => (
                                     <div key={g.id} onMouseDown={(e) => handleGraphicDragStart(e, g.id)} onClick={(e) => { e.stopPropagation(); setSelectedGraphicId(g.id); setDocToolMode('graphics'); }}
                                         className={`absolute pointer-events-auto cursor-move group ${selectedGraphicId === g.id ? 'ring-1 ring-indigo-500 ring-offset-2' : ''} ${g.type === 'circle' ? 'rounded-full' : ''}`}
-                                        style={{ left: g.x, top: g.y, width: g.width, height: g.height, transform: `rotate(${g.rotation}deg)`, backgroundColor: (g.type !== 'arrow' && g.type !== 'text' && g.filled) ? g.color : 'transparent', border: (g.type !== 'arrow' && g.type !== 'text' && !g.filled) ? `2px solid ${g.color}` : 'none', opacity: g.opacity, color: g.color, fontFamily: getFontFamily(g.fontFamily), fontSize: g.fontSize, fontWeight: g.fontWeight, display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'normal', textAlign: 'center' }}
+                                        style={{ left: g.x, top: g.y, width: g.width, height: g.height, transform: `rotate(${g.rotation}deg)`, backgroundColor: (g.type !== 'arrow' && g.type !== 'text' && g.filled) ? g.color : 'transparent', border: (g.type !== 'arrow' && g.type !== 'text' && !g.filled) ? `2px solid ${g.color}` : 'none', opacity: g.opacity, color: g.color, fontFamily: getFontFamily(g.fontFamily), fontSize: g.fontSize, fontWeight: g.fontWeight, textAlign: g.textAlign || 'center', display: 'flex', alignItems: 'center', justifyContent: g.textAlign === 'left' ? 'flex-start' : (g.textAlign === 'right' ? 'flex-end' : 'center'), whiteSpace: 'normal' }}
                                     >
                                         {g.type === 'circle' && <div className="w-full h-full rounded-full" style={{ backgroundColor: g.color }}></div>}
                                         {g.type === 'square' && <div className="w-full h-full" style={{ backgroundColor: g.color }}></div>}
@@ -334,12 +512,20 @@ const App: React.FC = () => {
                                 <div className="text-right whitespace-nowrap"><p className="font-bold text-sm"><span className="text-black">DeBoeck</span><span className="text-indigo-600">ChordBuilder</span></p></div>
                             </div>
                             {savedChords.map((chord, idx) => {
-                                const style = { shape: chord.noteShape || globalStyle.noteShape, color: chord.noteColor !== undefined ? chord.noteColor : globalStyle.noteColor, rootColor: chord.rootColor !== undefined ? chord.rootColor : globalStyle.rootColor, size: chord.noteSize || globalStyle.noteSize };
+                                const style = {
+                                    shape: chord.noteShape || globalStyle.noteShape,
+                                    color: chord.noteColor !== undefined ? chord.noteColor : globalStyle.noteColor,
+                                    rootColor: chord.rootColor !== undefined ? chord.rootColor : globalStyle.rootColor,
+                                    size: chord.noteSize || globalStyle.noteSize,
+                                    fontFamily: chord.fontFamily || globalStyle.fontFamily,
+                                    fontSize: chord.fontSize || globalStyle.fontSize
+                                };
                                 return (
-                                    <div key={chord.id} draggable onDragStart={(e) => { setDraggedChordIndex(idx); e.dataTransfer.effectAllowed = "move"; }} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }} onDrop={(e) => { e.preventDefault(); if (draggedChordIndex === null || draggedChordIndex === idx) return; const updated = [...savedChords]; const [moved] = updated.splice(draggedChordIndex, 1); updated.splice(idx, 0, moved); setSavedChords(updated); setDraggedChordIndex(null); }}
-                                        className={`relative rounded p-2 transition-all cursor-move z-10`}
+                                    <div key={chord.id} onMouseDown={(e) => handleChordDragStart(e, chord.id)}
+                                        className={`absolute rounded p-2 transition-shadow cursor-move z-10 ${selectedChordId === chord.id ? 'ring-2 ring-indigo-500 bg-indigo-50/50' : ''}`}
+                                        style={{ left: chord.x, top: chord.y }}
                                     >
-                                        <ChordSnapshot data={chord} generalFingeringMode={generalMode} onDelete={() => setSavedChords(prev => prev.filter(c => c.id !== chord.id))} styleShape={style.shape} styleColor={style.color} styleRootColor={style.rootColor} styleSize={style.size} isSelected={selectedChordId === chord.id} onClick={() => { setSelectedChordId(chord.id); setDocToolMode('particular'); setSelectedGraphicId(null); }} />
+                                        <ChordSnapshot data={chord} generalFingeringMode={generalMode} onDelete={() => setSavedChords(prev => prev.filter(c => c.id !== chord.id))} styleShape={style.shape} styleColor={style.color} styleRootColor={style.rootColor} styleSize={style.size} styleFontFamily={style.fontFamily} styleFontSize={style.fontSize} isSelected={selectedChordId === chord.id} onClick={() => { setSelectedChordId(chord.id); setDocToolMode('particular'); setSelectedGraphicId(null); }} />
                                     </div>
                                 );
                             })}
