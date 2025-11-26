@@ -277,10 +277,24 @@ const App: React.FC = () => {
     const COLORS = ['#000000', '#ffffff', '#ef4444', '#3b82f6', '#eab308', '#22c55e', '#a855f7'];
     const selectedGraphic = graphics.find(g => g.id === selectedGraphicId);
     const renderArrow = (g: GraphicObject) => {
-        const w = g.width; const h = g.height;
-        let headLen = w * 0.8; if (headLen > h * 0.6) headLen = h * 0.6; if (headLen < 10 && h > 20) headLen = 10;
-        const shaftWidth = w * 0.4; const shaftLeft = (w - shaftWidth) / 2; const shaftRight = (w + shaftWidth) / 2;
-        return (<svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}><path d={`M ${w / 2} 0 L ${w} ${headLen} L ${shaftRight} ${headLen} L ${shaftRight} ${h} L ${shaftLeft} ${h} L 0 ${headLen} Z`} fill={g.filled ? g.color : 'none'} stroke={g.color} strokeWidth={g.filled ? "0" : "2"} strokeLinejoin="round" /></svg>);
+        const w = g.width;
+        const h = g.height;
+        const headHeight = Math.min(h * 0.3, w * 1.5); // Arrow head height
+        const shaftWidth = w * 0.4; // Width of the arrow shaft
+        const shaftLeft = (w - shaftWidth) / 2;
+        const shaftRight = (w + shaftWidth) / 2;
+
+        return (
+            <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
+                <path
+                    d={`M ${w / 2} 0 L ${w} ${headHeight} L ${shaftRight} ${headHeight} L ${shaftRight} ${h} L ${shaftLeft} ${h} L ${shaftLeft} ${headHeight} L 0 ${headHeight} Z`}
+                    fill={g.filled ? g.color : 'none'}
+                    stroke={g.color}
+                    strokeWidth={g.filled ? "0" : "2"}
+                    strokeLinejoin="round"
+                />
+            </svg>
+        );
     };
     const getFontFamily = (font: string | undefined) => {
         if (font === 'Opus') return "'Opus Plain Chord Std', 'Times New Roman', serif";
