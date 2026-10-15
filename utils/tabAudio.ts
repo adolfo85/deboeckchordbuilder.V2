@@ -2,6 +2,13 @@ import { TabScore, TabEvent } from '../types';
 import { eventUnits } from './tabs';
 import { getNoteAtPosition } from './theory';
 
+export type PlaybackArticulation = 'legato' | 'ring' | 'staccato';
+
+export interface TabPlaybackOptions {
+  articulation?: PlaybackArticulation;
+  volume?: number;
+}
+
 export interface TabPlaybackController {
   stop: () => void;
   pause: () => void;
@@ -19,11 +26,209 @@ interface ScheduledEvent {
   nextEv?: TabEvent;
 }
 
+/**
+ * Creates a custom PeriodicWave for AudioContext representing acoustic guitar string overtones.
+ * Derived from physical harmonics: strong fundamental, warm 2nd/3rd, decaying higher partials.
+ */
+function createGuitarPeriodicWave(ctx: AudioContext): PeriodicWave {
+  const n = 32;
+  const real = new Float32Array(n);
+  const imag = new Float32Array(n);
+
+  const harmonicWeights = [
+    0,     // DC
+    1.0,   // 1: Fundamental
+    0.62,  // 2: Octave
+    0.40,  // 3: 12th
+    0.26,  // 4: 2 Octaves
+    0.17,  // 5: Major 17th
+    0.11,  // 6: Octave + 5th
+    0.075, // 7
+    0.05,  // 8
+    0.035, // 9
+    0.025, // 10
+    0.018, // 11
+    0.012  // 12
+  ];
+
+  for (let i = 1; i < n; i++) {
+    const sign = i % 2 === 0 ? -1 : 1;
+    if (i < harmonicWeights.length) {
+      imag[i] = harmonicWeights[i] * sign;
+    } else {
+      imag[i] = (0.12 / i) * sign;
+    }
+  }
+
+  return ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+}
+
+/**
+ * Generates an acoustic studio room convolution impulse response in memory.
+ */
+function createRoomReverb(ctx: AudioContext, duration = 1.2, decay = 2.8): ConvolverNode {
+  const sampleRate = ctx.sampleRate;
+  const length = Math.floor(sampleRate * duration);
+  const impulse = ctx.createBuffer(2, length, sampleRate);
+  const left = impulse.getChannelData(0);
+  const right = impulse.getChannelData(1);
+
+  for (let i = 0; i < length; i++) {
+    const t = i / length;
+    const env = Math.pow(1 - t, decay);
+    left[i] = (Math.random() * 2 - 1) * env;
+    right[i] = (Math.random() * 2 - 1) * env;
+  }
+
+  const convolver = ctx.createConvolver();
+  convolver.buffer = impulse;
+  return convolver;
+}
+
+/**
+ * Synthesizes a single guitar voice with warm acoustic timbre, rich body resonance,
+ * and precise articulation duration (Legato = full note duration).
+ */
+function playGuitarVoice(
+  ctx: AudioContext,
+  freq: number,
+  startTime: number,
+  nominalDurationSec: number,
+  voiceDurationSec: number,
+  articulation: PlaybackArticulation,
+  isHammer: boolean,
+  hasSlide: boolean,
+  slideTargetFreq: number | null,
+  dryGainNode: GainNode,
+  wetGainNode: GainNode,
+  guitarWave: PeriodicWave
+) {
+  // Determine sounding duration based on articulation:
+  // - legato: 100% full nominal duration, holding tone continuously into next note or rest.
+  // - ring: lets string ring out naturally (up to 3.2s) unless superseded.
+  // - staccato: crisp 45% duration.
+  let activeDuration = voiceDurationSec;
+  if (articulation === 'staccato') {
+    activeDuration = Math.max(0.08, voiceDurationSec * 0.45);
+  } else if (articulation === 'ring') {
+    activeDuration = Math.max(voiceDurationSec, Math.min(3.2, voiceDurationSec * 2.2));
+  }
+
+  const attackTime = isHammer ? 0.016 : 0.005;
+  const peakVol = 0.22;
+  const sustainVol = peakVol * 0.78; // 0.17: strong, warm sustain
+
+  // Smooth release window at the end to prevent digital clicks while sounding legato
+  const releaseTime = Math.min(0.026, activeDuration * 0.18);
+  const sustainEndTime = Math.max(startTime + attackTime + 0.03, startTime + activeDuration - releaseTime);
+  const stopTime = startTime + activeDuration;
+
+  // 1. Primary harmonic oscillator
+  const osc = ctx.createOscillator();
+  osc.setPeriodicWave(guitarWave);
+  osc.frequency.setValueAtTime(freq, startTime);
+
+  // 2. Secondary detuned oscillator for natural string chorus and acoustic depth (+2.5 cents)
+  const oscChorus = ctx.createOscillator();
+  oscChorus.type = 'triangle';
+  oscChorus.frequency.setValueAtTime(freq, startTime);
+  oscChorus.detune.setValueAtTime(2.5, startTime);
+  const chorusGain = ctx.createGain();
+  chorusGain.gain.setValueAtTime(0.18, startTime);
+  oscChorus.connect(chorusGain);
+
+  // 3. Slide pitch bend if active
+  if (hasSlide && slideTargetFreq !== null) {
+    const slideStart = startTime + nominalDurationSec * 0.45;
+    const slideEnd = startTime + nominalDurationSec * 0.95;
+    osc.frequency.setValueAtTime(freq, slideStart);
+    osc.frequency.exponentialRampToValueAtTime(slideTargetFreq, slideEnd);
+    oscChorus.frequency.setValueAtTime(freq, slideStart);
+    oscChorus.frequency.exponentialRampToValueAtTime(slideTargetFreq, slideEnd);
+  }
+
+  // 4. Acoustic guitar body resonance filter (peaking around 210 Hz)
+  const bodyFilter = ctx.createBiquadFilter();
+  bodyFilter.type = 'peaking';
+  bodyFilter.frequency.setValueAtTime(210, startTime);
+  bodyFilter.Q.setValueAtTime(1.3, startTime);
+  bodyFilter.gain.setValueAtTime(3.0, startTime); // +3dB wooden body warmth
+
+  // 5. Dynamic lowpass filter (starts open for attack sparkle, settles into warm sustain)
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  const initialCutoff = Math.min(7000, Math.max(1800, freq * 7));
+  const sustainCutoff = Math.min(3600, Math.max(1000, freq * 3));
+  filter.frequency.setValueAtTime(initialCutoff, startTime);
+  filter.frequency.exponentialRampToValueAtTime(
+    sustainCutoff,
+    startTime + Math.min(activeDuration, 0.7)
+  );
+
+  // 6. Pluck transient (finger/pick impact noise)
+  if (!isHammer && ctx.sampleRate) {
+    const bufferSize = Math.floor(ctx.sampleRate * 0.01); // 10ms
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const channel = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      const decay = 1 - (i / bufferSize);
+      channel[i] = (Math.random() * 2 - 1) * decay * decay;
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(2400, startTime);
+    noiseFilter.Q.setValueAtTime(1.6, startTime);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.04, startTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.01);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(filter);
+
+    noiseSource.start(startTime);
+    noiseSource.stop(startTime + 0.012);
+  }
+
+  // 7. Voice Volume Envelope (ADSR)
+  const voiceGain = ctx.createGain();
+  voiceGain.gain.setValueAtTime(0.0001, startTime);
+  voiceGain.gain.linearRampToValueAtTime(peakVol, startTime + attackTime);
+  voiceGain.gain.exponentialRampToValueAtTime(sustainVol, startTime + attackTime + 0.05);
+
+  // Slow natural acoustic decay across sustain (note remains singing and audible for full duration)
+  const endSustainVol = sustainVol * Math.max(0.55, Math.exp(-0.25 * (activeDuration / 1.0)));
+  voiceGain.gain.setValueAtTime(sustainVol, startTime + attackTime + 0.05);
+  voiceGain.gain.linearRampToValueAtTime(endSustainVol, sustainEndTime);
+
+  // Anti-click smooth release to finish exactly on the beat
+  voiceGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+  // Connect routing
+  osc.connect(filter);
+  chorusGain.connect(filter);
+  filter.connect(bodyFilter);
+  bodyFilter.connect(voiceGain);
+
+  voiceGain.connect(dryGainNode);
+  voiceGain.connect(wetGainNode);
+
+  osc.start(startTime);
+  oscChorus.start(startTime);
+  osc.stop(stopTime + 0.05);
+  oscChorus.stop(stopTime + 0.05);
+}
+
 export const startTabPlayback = (
   score: TabScore,
   startFrom: { m: number; slot: number } = { m: 0, slot: 0 },
   onCursor: (c: { m: number; slot: number } | null) => void,
-  onFinished: () => void
+  onFinished: () => void,
+  options?: TabPlaybackOptions
 ): TabPlaybackController => {
   const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioCtx) {
@@ -34,7 +239,10 @@ export const startTabPlayback = (
   const ctx = new AudioCtx();
   let stopped = false;
   let paused = false;
-  let activeTimers: number[] = [];
+  let animFrameId: number | null = null;
+
+  const articulation: PlaybackArticulation = options?.articulation || score.playbackArticulation || 'legato';
+  const masterVolume = Math.max(0, Math.min(1.5, options?.volume ?? 1.0));
 
   // 1. Build flat list of all playable events from startFrom
   const timeline: ScheduledEvent[] = [];
@@ -73,126 +281,145 @@ export const startTabPlayback = (
     return { stop: () => {}, pause: () => {}, resume: () => {}, isPlaying: false, isPaused: false };
   }
 
-  // Prev check for tied notes
+  // Master audio bus setup with studio room reverb
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(masterVolume, ctx.currentTime);
+  masterGain.connect(ctx.destination);
+
+  const dryGain = ctx.createGain();
+  dryGain.gain.setValueAtTime(0.84, ctx.currentTime);
+  dryGain.connect(masterGain);
+
+  const wetGain = ctx.createGain();
+  wetGain.gain.setValueAtTime(0.16, ctx.currentTime);
+
+  try {
+    const reverbNode = createRoomReverb(ctx, 1.2, 2.7);
+    wetGain.connect(reverbNode);
+    reverbNode.connect(masterGain);
+  } catch {
+    // Fallback if convolution buffer is not supported in environment
+    wetGain.connect(masterGain);
+  }
+
+  const guitarWave = createGuitarPeriodicWave(ctx);
+
+  // Check if a note is tied from a previous event in timeline
   const isTiedFromPrev = (itemIdx: number, s: number, fret: number) => {
-    if (itemIdx === 0) {
-      if (startFrom.m > 0 || startFrom.slot > 0) {
-        // check prior event in score
-        const pm = startFrom.slot > 0 ? score.measures[startFrom.m] : score.measures[startFrom.m - 1];
-        const pe = startFrom.slot > 0 ? pm.events[startFrom.slot - 1] : pm?.events[pm?.events.length - 1];
-        return !!(pe && !pe.rest && pe.ties?.[s] && pe.frets[s] === fret);
-      }
-      return false;
-    }
+    // If starting playback from this position, sound the note from here
+    if (itemIdx === 0) return false;
     const prevItem = timeline[itemIdx - 1];
     return !!(!prevItem.ev.rest && prevItem.ev.ties?.[s] && prevItem.ev.frets[s] === fret);
   };
 
   const startTime = ctx.currentTime + 0.08;
 
-  // 2. Schedule Web Audio synthesis & cursor callbacks
+  // 2. Schedule all audio events
   timeline.forEach((item, itemIdx) => {
     const eventAudioTime = startTime + item.timeSec;
     const { ev, durationSec, nextEv } = item;
 
-    // Visual cursor scheduling
-    const delayMs = Math.max(0, (eventAudioTime - ctx.currentTime) * 1000);
-    const timerId = window.setTimeout(() => {
-      if (!stopped && !paused) {
-        onCursor({ m: item.m, slot: item.slot });
-      }
-    }, delayMs);
-    activeTimers.push(timerId);
-
-    // Audio plucking
     if (!ev.rest) {
+      // Collect playable notes on this event
+      const notesToPlay: { s: number; fret: number }[] = [];
       ev.frets.forEach((fret, s) => {
         if (fret === null) return;
-        if (isTiedFromPrev(itemIdx, s, fret)) return; // sustained tie
+        if (isTiedFromPrev(itemIdx, s, fret)) return; // Sustained voice from earlier tie
+        notesToPlay.push({ s, fret });
+      });
 
+      notesToPlay.forEach(({ s, fret }, noteOrderIdx) => {
         const noteInfo = getNoteAtPosition(s, fret, 'standard');
         const freq = 440 * Math.pow(2, (noteInfo.absolute - 69) / 12);
 
-        const osc = ctx.createOscillator();
-        const oscHarmonic = ctx.createOscillator();
-        const harmonicGain = ctx.createGain();
-        const filter = ctx.createBiquadFilter();
-        const gain = ctx.createGain();
-
-        // Fundamental triangle wave
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, eventAudioTime);
-
-        // 2nd harmonic for guitar string richness
-        oscHarmonic.type = 'sawtooth';
-        oscHarmonic.frequency.setValueAtTime(freq * 2, eventAudioTime);
-        harmonicGain.gain.setValueAtTime(0.12, eventAudioTime);
-        oscHarmonic.connect(harmonicGain);
-        harmonicGain.connect(filter);
-
-        // Slide pitch bend if slide is active
-        if (ev.slides?.[s] && nextEv && nextEv.frets[s] !== null) {
-          const nextNote = getNoteAtPosition(s, nextEv.frets[s]!, 'standard');
-          const targetFreq = 440 * Math.pow(2, (nextNote.absolute - 69) / 12);
-          const slideStart = eventAudioTime + durationSec * 0.45;
-          const slideEnd = eventAudioTime + durationSec * 0.95;
-          osc.frequency.setValueAtTime(freq, slideStart);
-          osc.frequency.exponentialRampToValueAtTime(targetFreq, slideEnd);
+        // Calculate total tied duration: accumulate consecutive tied events with matching fret on string s
+        let voiceDuration = durationSec;
+        let curIdx = itemIdx;
+        while (timeline[curIdx]?.ev.ties?.[s]) {
+          const nextItem = timeline[curIdx + 1];
+          if (!nextItem || nextItem.ev.rest || nextItem.ev.frets[s] !== fret) break;
+          voiceDuration += nextItem.durationSec;
+          curIdx++;
         }
 
-        // Lowpass filter simulating acoustic guitar body
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(Math.min(3000, freq * 5), eventAudioTime);
-        filter.frequency.exponentialRampToValueAtTime(Math.max(220, freq * 1.4), eventAudioTime + Math.min(durationSec, 1.2));
+        // Slight strumming offset if multiple strings in a chord (6ms per string for human touch)
+        const strumOffset = notesToPlay.length > 1 ? noteOrderIdx * 0.006 : 0;
+        const noteStartTime = eventAudioTime + strumOffset;
 
-        // Volume envelope
-        const isHammer = ev.hammerPull?.[s];
-        const attack = isHammer ? 0.015 : 0.005;
-        const peakVol = 0.22;
-        const noteTail = Math.min(durationSec * 1.5, 3.0);
+        // Slide target frequency if slide active
+        let slideTargetFreq: number | null = null;
+        if (ev.slides?.[s] && nextEv && nextEv.frets[s] !== null) {
+          const nextNote = getNoteAtPosition(s, nextEv.frets[s]!, 'standard');
+          slideTargetFreq = 440 * Math.pow(2, (nextNote.absolute - 69) / 12);
+        }
 
-        gain.gain.setValueAtTime(0.0001, eventAudioTime);
-        gain.gain.linearRampToValueAtTime(peakVol, eventAudioTime + attack);
-        gain.gain.exponentialRampToValueAtTime(0.0001, eventAudioTime + noteTail);
-
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(eventAudioTime);
-        oscHarmonic.start(eventAudioTime);
-        osc.stop(eventAudioTime + noteTail);
-        oscHarmonic.stop(eventAudioTime + noteTail);
+        playGuitarVoice(
+          ctx,
+          freq,
+          noteStartTime,
+          durationSec,
+          voiceDuration,
+          articulation,
+          !!ev.hammerPull?.[s],
+          !!ev.slides?.[s],
+          slideTargetFreq,
+          dryGain,
+          wetGain,
+          guitarWave
+        );
       });
     }
   });
 
-  // Finish timer
-  const finishDelayMs = Math.max(0, (startTime + totalTime - ctx.currentTime) * 1000 + 100);
-  const endTimerId = window.setTimeout(() => {
-    if (!stopped) {
-      onCursor(null);
-      onFinished();
-      try { ctx.close(); } catch {}
-    }
-  }, finishDelayMs);
-  activeTimers.push(endTimerId);
+  // 3. Frame-perfect visual cursor synchronization loop via Web Audio clock
+  const finishTime = totalTime + (articulation === 'ring' ? 1.0 : 0.35);
 
-  const clearTimers = () => {
-    activeTimers.forEach(id => window.clearTimeout(id));
-    activeTimers = [];
+  const checkCursor = () => {
+    if (stopped) return;
+
+    if (!paused && ctx.state === 'running') {
+      const curAudioTime = ctx.currentTime - startTime;
+
+      if (curAudioTime >= 0) {
+        // Find currently playing event
+        let activeItem: ScheduledEvent | null = null;
+        for (let i = 0; i < timeline.length; i++) {
+          const item = timeline[i];
+          if (curAudioTime >= item.timeSec && curAudioTime < item.timeSec + item.durationSec) {
+            activeItem = item;
+            break;
+          }
+        }
+
+        if (activeItem) {
+          onCursor({ m: activeItem.m, slot: activeItem.slot });
+        }
+      }
+
+      // Check if score playback has completed
+      if (curAudioTime >= finishTime) {
+        stopped = true;
+        onCursor(null);
+        onFinished();
+        try { ctx.close(); } catch {}
+        return;
+      }
+    }
+
+    animFrameId = requestAnimationFrame(checkCursor);
   };
+
+  animFrameId = requestAnimationFrame(checkCursor);
 
   const stop = () => {
     stopped = true;
-    clearTimers();
+    if (animFrameId !== null) cancelAnimationFrame(animFrameId);
     onCursor(null);
     try { ctx.close(); } catch {}
   };
 
   const pause = () => {
     paused = true;
-    clearTimers();
     try { ctx.suspend(); } catch {}
   };
 

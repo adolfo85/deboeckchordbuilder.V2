@@ -235,22 +235,62 @@ export const playNotes = (notes: NoteData[]) => {
   const ctx = new AudioContext();
   const now = ctx.currentTime;
   const sortedNotes = [...notes].sort((a, b) => a.absoluteSemitone - b.absoluteSemitone);
+
+  // Periodic wave for warm acoustic guitar timbre
+  const n = 24;
+  const real = new Float32Array(n);
+  const imag = new Float32Array(n);
+  const harmonicWeights = [0, 1.0, 0.62, 0.40, 0.26, 0.17, 0.11, 0.07, 0.05];
+  for (let h = 1; h < n; h++) {
+    const sign = h % 2 === 0 ? -1 : 1;
+    imag[h] = (h < harmonicWeights.length ? harmonicWeights[h] : 0.1 / h) * sign;
+  }
+  const guitarWave = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+
+  // Master bus
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(0.9, now);
+  masterGain.connect(ctx.destination);
+
   sortedNotes.forEach((n, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
     const freq = 440 * Math.pow(2, (n.absoluteSemitone - 69) / 12);
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(freq, now);
-    const startTime = now + (i * 0.05);
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 1.5);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const startTime = now + (i * 0.045); // Natural strumming arpeggio
+    const duration = 2.0;
+
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(guitarWave);
+    osc.frequency.setValueAtTime(freq, startTime);
+
+    const bodyFilter = ctx.createBiquadFilter();
+    bodyFilter.type = 'peaking';
+    bodyFilter.frequency.setValueAtTime(210, startTime);
+    bodyFilter.Q.setValueAtTime(1.3, startTime);
+    bodyFilter.gain.setValueAtTime(3.0, startTime);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.min(6500, Math.max(1800, freq * 6)), startTime);
+    filter.frequency.exponentialRampToValueAtTime(Math.min(3200, Math.max(900, freq * 2.5)), startTime + 0.8);
+
+    const gain = ctx.createGain();
+    const peakVol = 0.22;
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(peakVol, startTime + 0.006);
+    gain.gain.exponentialRampToValueAtTime(peakVol * 0.75, startTime + 0.06);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    osc.connect(filter);
+    filter.connect(bodyFilter);
+    bodyFilter.connect(gain);
+    gain.connect(masterGain);
+
     osc.start(startTime);
-    osc.stop(startTime + 2);
+    osc.stop(startTime + duration + 0.05);
   });
-  setTimeout(() => ctx.close(), 2500);
+
+  setTimeout(() => {
+    try { ctx.close(); } catch {}
+  }, 2800);
 };
 
 export const SCALE_TYPES: Record<string, { name: string, intervals: number[] }> = {

@@ -12,7 +12,7 @@ import {
   resizeEvent, writeFret, advanceFrom, TUPLETS, insertTuplet, removeTuplet,
   KEY_SIGNATURES, getKeySig, DEFAULT_STAFF_GAP, fretToNotationPitch
 } from '../utils/tabs';
-import { startTabPlayback, TabPlaybackController } from '../utils/tabAudio';
+import { startTabPlayback, TabPlaybackController, PlaybackArticulation } from '../utils/tabAudio';
 
 interface TabEditorProps {
   score: TabScore;
@@ -74,6 +74,9 @@ export const TabEditor: React.FC<TabEditorProps> = ({ score, onChange, onCapture
   const [playbackCursor, setPlaybackCursor] = useState<{ m: number; slot: number } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [articulation, setArticulation] = useState<PlaybackArticulation>(
+    score.playbackArticulation || 'legato'
+  );
   const playbackRef = useRef<TabPlaybackController | null>(null);
 
   // A typed 1 or 2 may still become a two-digit fret (10-24), so the advance waits briefly.
@@ -375,11 +378,17 @@ export const TabEditor: React.FC<TabEditorProps> = ({ score, onChange, onCapture
         setIsPaused(false);
         setPlaybackCursor(null);
         playbackRef.current = null;
-      }
+      },
+      { articulation }
     );
     playbackRef.current = ctrl;
     setIsPlaying(true);
     setIsPaused(false);
+  };
+
+  const handleArticulationChange = (newArt: PlaybackArticulation) => {
+    setArticulation(newArt);
+    onChange({ ...score, playbackArticulation: newArt });
   };
 
   const handleStop = () => {
@@ -464,7 +473,7 @@ export const TabEditor: React.FC<TabEditorProps> = ({ score, onChange, onCapture
                 ? 'bg-amber-600 hover:bg-amber-500 text-white animate-pulse shadow-lg shadow-amber-900/50'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
             }`}
-            title={isPlaying && !isPaused ? 'Pausar reproducción' : 'Reproducir tablatura'}
+            title={isPlaying && !isPaused ? 'Pausar reproducción' : 'Reproducir partitura / tablatura'}
           >
             {isPlaying && !isPaused ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
             <span>{isPlaying && !isPaused ? 'Pausa' : isPaused ? 'Reanudar' : 'Reproducir'}</span>
@@ -477,6 +486,21 @@ export const TabEditor: React.FC<TabEditorProps> = ({ score, onChange, onCapture
           >
             <Square size={13} fill="currentColor" />
           </button>
+
+          {/* Articulation Selector */}
+          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Sonido:</span>
+            <select
+              value={articulation}
+              onChange={e => handleArticulationChange(e.target.value as PlaybackArticulation)}
+              className="bg-slate-900 text-slate-200 border border-slate-700 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:border-indigo-500 hover:border-slate-600 transition-colors cursor-pointer"
+              title="Articulación: Legato sostiene cada nota su duración completa (por defecto)"
+            >
+              <option value="legato">Legato (Duración completa)</option>
+              <option value="ring">Resonante (Let Ring / Anillo)</option>
+              <option value="staccato">Staccato (Corta / 50%)</option>
+            </select>
+          </div>
 
           {playbackCursor && (
             <div className="flex items-center gap-1.5 text-xs text-amber-300 font-mono pl-2 border-l border-slate-800 font-bold">
@@ -735,6 +759,39 @@ export const TabEditor: React.FC<TabEditorProps> = ({ score, onChange, onCapture
                             Quitar
                           </button>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Sonido y Articulación de Reproducción */}
+                    <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Sonido de partitura:</span>
+                        <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                          {articulation === 'legato' ? 'Legato (100%)' : articulation === 'ring' ? 'Resonante' : 'Staccato (50%)'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          onClick={() => handleArticulationChange('legato')}
+                          className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-colors ${articulation === 'legato' ? on : off}`}
+                          title="Legato: Las notas duran su figura completa sin cortarse"
+                        >
+                          Legato
+                        </button>
+                        <button
+                          onClick={() => handleArticulationChange('ring')}
+                          className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-colors ${articulation === 'ring' ? on : off}`}
+                          title="Resonante: Las cuerdas resuenan libremente como una guitarra acústica"
+                        >
+                          Resonante
+                        </button>
+                        <button
+                          onClick={() => handleArticulationChange('staccato')}
+                          className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-colors ${articulation === 'staccato' ? on : off}`}
+                          title="Staccato: Notas cortas y picadas al 50%"
+                        >
+                          Staccato
+                        </button>
                       </div>
                     </div>
                   </div>

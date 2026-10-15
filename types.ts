@@ -92,6 +92,7 @@ export interface TabScore {
   showStandardNotation?: boolean;
   staffGap?: number;
   keySig?: string;
+  playbackArticulation?: 'legato' | 'ring' | 'staccato';
   measures: TabMeasure[];
 }
 
