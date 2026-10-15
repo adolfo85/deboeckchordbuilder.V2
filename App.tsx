@@ -3,8 +3,11 @@ import React, { useState, useCallback, useRef } from 'react';
 import { Fretboard } from './components/Fretboard';
 import { ScaleFretboard } from './components/ScaleFretboard';
 import { ChordSnapshot } from './components/ChordSnapshot';
-import { NoteData, SavedChord, ChordStyle, GraphicObject } from './types';
-import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes, SCALE_TYPES, getScaleNotes, getScaleNoteName } from './utils/theory';
+import { TabEditor } from './components/TabEditor';
+import { TabSnapshot } from './components/TabSnapshot';
+import { NoteData, SavedChord, ChordStyle, GraphicObject, TabScore } from './types';
+import { createEmptyScore, cloneScore, tabHeight } from './utils/tabs';
+import { getNoteAtPosition, detectChordName, getEnharmonicSuggestion, TUNINGS, playNotes, SCALE_TYPES, getScaleNotes, getScaleNoteName, NOTES, getNoteDisplay } from './utils/theory';
 import { Trash2, Camera, X, Play, Settings2, MousePointer2, Type, Guitar, FileText, Printer, ToggleRight, ToggleLeft, Layers, Circle, Square, Triangle, MousePointerClick, Shapes, Move, RotateCw, Bold, HelpCircle, Info, BookOpen, Layout, AlignLeft, AlignCenter, AlignRight, AlignJustify, Music } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -123,7 +126,8 @@ const App: React.FC = () => {
     const [globalStyle, setGlobalStyle] = useState<ChordStyle>({ noteShape: 'circle', noteColor: 'default', rootColor: '#000000', noteSize: 1, fontFamily: 'Sans', fontSize: 1 });
     const [graphics, setGraphics] = useState<GraphicObject[]>([]);
     const [activeTab, setActiveTab] = useState<'editor' | 'appearance'>('editor');
-    const [viewMode, setViewMode] = useState<'editor' | 'document' | 'scales'>('editor');
+    const [viewMode, setViewMode] = useState<'editor' | 'document' | 'scales' | 'tabs'>('editor');
+    const [tabScore, setTabScore] = useState<TabScore>(() => createEmptyScore());
     const [dismissedSuggestion, setDismissedSuggestion] = useState<string>("");
     const [draggedChordIndex, setDraggedChordIndex] = useState<number | null>(null);
     const fretboardContainerRef = useRef<HTMLDivElement>(null);
@@ -134,6 +138,15 @@ const App: React.FC = () => {
     const [selectedScaleType, setSelectedScaleType] = useState<string>('major');
     const [scaleStartFret, setScaleStartFret] = useState<number>(0);
     const [scaleEndFret, setScaleEndFret] = useState<number>(12);
+    const [scaleUseFlats, setScaleUseFlats] = useState<boolean>(false);
+
+    const toggleScaleFlats = () => {
+        const next = !scaleUseFlats;
+        setScaleUseFlats(next);
+        if (selectedScaleRoot) {
+            setSelectedScaleRoot(prev => prev ? { ...prev, accidental: next ? 'b' : '#' } : null);
+        }
+    };
 
     const handleToggleNote = useCallback((stringIndex: number, fret: number) => {
         const noteInfo = getNoteAtPosition(stringIndex, fret, 'standard');
@@ -156,7 +169,10 @@ const App: React.FC = () => {
 
     const handleNoteClick = (note: NoteData) => {
         if (setRootMode) { setRootNote(note); setSetRootMode(false); return; }
-        setSelectedNotes(prev => prev.map(n => n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber ? { ...n, accidental: n.accidental === 'b' ? '#' : 'b' } : n));
+        const nextAccidental: 'b' | '#' = note.accidental === 'b' ? '#' : 'b';
+        const isSame = (n: NoteData) => n.stringIndex === note.stringIndex && n.fretNumber === note.fretNumber;
+        setSelectedNotes(prev => prev.map(n => isSame(n) ? { ...n, accidental: nextAccidental } : n));
+        setRootNote(prev => (prev && isSame(prev)) ? { ...prev, accidental: nextAccidental } : prev);
     };
     const captureChord = () => {
         if (savedChords.length >= 9) {
@@ -209,25 +225,59 @@ const App: React.FC = () => {
 
         const nextY = maxY + (height + gapY);
 
+        const rootName = getScaleNoteName(selectedScaleRoot, selectedScaleRoot.absoluteSemitone, selectedScaleType, scaleUseFlats);
         const newScale: SavedChord = {
             id: Date.now().toString(),
-            name: `${getScaleNoteName(selectedScaleRoot, selectedScaleRoot.absoluteSemitone, selectedScaleType)} ${SCALE_TYPES[selectedScaleType].name}`,
+            name: `${rootName} ${SCALE_TYPES[selectedScaleType].name}`,
             notes: [], // Scales don't store individual notes like chords, they generate them
             rootNote: selectedScaleRoot,
             date: Date.now(),
             showIntervals: false,
-            useFlats,
+            useFlats: scaleUseFlats,
             instrument: 'guitar',
             tuningId: 'standard',
             x: startX,
             y: nextY,
             type: 'scale',
-            scaleRoot: selectedScaleRoot,
+            scaleRoot: { ...selectedScaleRoot, accidental: scaleUseFlats ? 'b' : '#' },
             scaleType: selectedScaleType,
             fretRange: { start: scaleStartFret, end: scaleEndFret }
         };
 
         setSavedChords(prev => [...prev, newScale]);
+        setViewMode('document');
+    };
+
+    const captureTab = () => {
+        if (savedChords.length >= 9) {
+            alert("Has alcanzado el límite de 9 elementos por hoja.");
+            return;
+        }
+        const startY = 220;
+        const gap = 30;
+        // Place the tab below everything already on the sheet
+        let maxBottom = startY - gap;
+        savedChords.forEach(c => {
+            const h = c.type === 'tab' && c.tab ? tabHeight(c.tab) + 40 : 300;
+            if (c.y + h > maxBottom) maxBottom = c.y + h;
+        });
+        const snapshot = cloneScore(tabScore);
+        const newTab: SavedChord = {
+            id: Date.now().toString(),
+            name: snapshot.title || 'Tablatura',
+            notes: [],
+            rootNote: null,
+            date: Date.now(),
+            showIntervals: false,
+            useFlats,
+            instrument: 'guitar',
+            tuningId: 'standard',
+            x: 40,
+            y: maxBottom + gap,
+            type: 'tab',
+            tab: snapshot
+        };
+        setSavedChords(prev => [...prev, newTab]);
         setViewMode('document');
     };
 
@@ -312,6 +362,7 @@ const App: React.FC = () => {
                     <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700 ml-4">
                         <button onClick={() => setViewMode('editor')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'editor' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Guitar size={14} /> Edición de acordes</button>
                         <button onClick={() => setViewMode('scales')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'scales' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Music size={14} /> Escalas</button>
+                        <button onClick={() => setViewMode('tabs')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'tabs' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><AlignLeft size={14} /> Tablatura</button>
                         <button onClick={() => setViewMode('document')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 ${viewMode === 'document' ? 'bg-white text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}><FileText size={14} /> Documento</button>
                     </div>
                     <div className="hidden xl:flex items-center gap-4 ml-4 border-l border-slate-700 pl-4"><span className="text-[10px] text-slate-400 italic leading-tight max-w-[300px]">Esta app fue diseñada para complementar el material del libro "principios del chord-melody" del prof. A. C. De Boeck</span></div>
@@ -381,16 +432,28 @@ const App: React.FC = () => {
                             {/* Controls */}
                             <div className="w-full max-w-5xl flex flex-wrap items-center gap-6 mb-6">
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-xs font-bold text-slate-400 uppercase">Fundamental</label>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase">Fundamental</label>
+                                        <button
+                                            onClick={toggleScaleFlats}
+                                            title="Alternar sostenidos / bemoles (enarmonía)"
+                                            className="text-xs font-bold text-indigo-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors flex items-center gap-1"
+                                        >
+                                            <span>{scaleUseFlats ? '♭ Bemoles' : '♯ Sostenidos'}</span>
+                                        </button>
+                                    </div>
                                     <div className="flex gap-1">
-                                        {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map((note, idx) => (
-                                            <button key={note}
-                                                onClick={() => setSelectedScaleRoot({ note: note as any, octave: 3, absoluteSemitone: idx, stringIndex: 5, fretNumber: 0, isRoot: true, accidental: useFlats ? 'b' : '#' })}
-                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${selectedScaleRoot?.absoluteSemitone === idx ? 'bg-indigo-600 text-white shadow' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}
-                                            >
-                                                {note}
-                                            </button>
-                                        ))}
+                                        {NOTES.map((note, idx) => {
+                                            const display = getNoteDisplay(note, scaleUseFlats, scaleUseFlats ? 'b' : '#');
+                                            return (
+                                                <button key={note}
+                                                    onClick={() => setSelectedScaleRoot({ note: note as any, octave: 3, absoluteSemitone: idx, stringIndex: 5, fretNumber: 0, isRoot: true, accidental: scaleUseFlats ? 'b' : '#' })}
+                                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${selectedScaleRoot?.absoluteSemitone === idx ? 'bg-indigo-600 text-white shadow' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}
+                                                >
+                                                    {display}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -415,11 +478,14 @@ const App: React.FC = () => {
 
                             {/* Fretboard Visualization */}
                             <div className="w-full max-w-5xl">
-                                <ScaleFretboard rootNote={selectedScaleRoot} scaleType={selectedScaleType} useFlats={useFlats} startFret={scaleStartFret} endFret={scaleEndFret} />
+                                <ScaleFretboard rootNote={selectedScaleRoot} scaleType={selectedScaleType} useFlats={scaleUseFlats} startFret={scaleStartFret} endFret={scaleEndFret} />
                             </div>
                         </div>
                     </div>
                 )}
+
+                {/* TAB EDITOR */}
+                {viewMode === 'tabs' && <TabEditor score={tabScore} onChange={setTabScore} onCapture={captureTab} />}
 
                 {/* --- DOCUMENT MODE --- */}
                 <div className={`absolute inset-0 flex flex-col bg-slate-900 transition-transform duration-300 ${viewMode === 'document' ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -539,7 +605,9 @@ const App: React.FC = () => {
                                         className={`absolute rounded p-2 transition-shadow cursor-move z-10 ${selectedChordId === chord.id ? 'ring-2 ring-indigo-500 bg-indigo-50/50' : ''}`}
                                         style={{ left: chord.x, top: chord.y }}
                                     >
-                                        <ChordSnapshot data={chord} generalFingeringMode={generalMode} onDelete={() => setSavedChords(prev => prev.filter(c => c.id !== chord.id))} styleShape={style.shape} styleColor={style.color} styleRootColor={style.rootColor} styleSize={style.size} styleFontFamily={style.fontFamily} styleFontSize={style.fontSize} isSelected={selectedChordId === chord.id} onClick={() => { setSelectedChordId(chord.id); setDocToolMode('particular'); setSelectedGraphicId(null); }} />
+                                        {chord.type === 'tab'
+                                            ? <TabSnapshot data={chord} onDelete={() => setSavedChords(prev => prev.filter(c => c.id !== chord.id))} isSelected={selectedChordId === chord.id} onClick={() => { setSelectedChordId(chord.id); setDocToolMode('particular'); setSelectedGraphicId(null); }} />
+                                            : <ChordSnapshot data={chord} generalFingeringMode={generalMode} onDelete={() => setSavedChords(prev => prev.filter(c => c.id !== chord.id))} styleShape={style.shape} styleColor={style.color} styleRootColor={style.rootColor} styleSize={style.size} styleFontFamily={style.fontFamily} styleFontSize={style.fontSize} isSelected={selectedChordId === chord.id} onClick={() => { setSelectedChordId(chord.id); setDocToolMode('particular'); setSelectedGraphicId(null); }} />}
                                     </div>
                                 );
                             })}

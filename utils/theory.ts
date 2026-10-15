@@ -78,7 +78,7 @@ export const getEnharmonicSuggestion = (root: NoteData, notes: NoteData[], useFl
  */
 export const detectChordName = (root: NoteData, notes: NoteData[], useFlats: boolean = false): string | null => {
   if (notes.length < 1) return null;
-  if (notes.length === 1) return getNoteDisplay(root.note, useFlats);
+  if (notes.length === 1) return getNoteDisplay(root.note, useFlats, root.accidental);
 
   const intervals = new Set<number>();
   notes.forEach(n => {
@@ -102,7 +102,7 @@ export const detectChordName = (root: NoteData, notes: NoteData[], useFlats: boo
   const hasb7 = has(10);
   const has7 = has(11);
 
-  let rootName = getNoteDisplay(root.note, useFlats);
+  let rootName = getNoteDisplay(root.note, useFlats, root.accidental);
   let quality = "";
   let extension = "";
   let alterations = "";
@@ -274,14 +274,14 @@ export const getScaleNotes = (rootAbsolute: number, scaleType: string): number[]
   return scale.intervals.map(interval => (rootAbsolute + interval) % 12);
 };
 
-export const getScaleNoteName = (rootNote: NoteData, noteAbsolute: number, scaleType: string): string => {
-  // Simple logic for now: use sharps for sharp keys, flats for flat keys
-  // A more robust implementation would use the circle of fifths and scale degrees
+export const getScaleNoteName = (rootNote: NoteData, noteAbsolute: number, scaleType: string, useFlatsOverride?: boolean): string => {
   const rootName = rootNote.note;
-  const useFlats = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(rootName) || (rootName === 'C' && scaleType.includes('minor'));
+  const useFlats = useFlatsOverride !== undefined
+    ? useFlatsOverride
+    : (rootNote.accidental === 'b' || ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(rootName) || (rootName === 'C' && scaleType.includes('minor')));
 
   const noteIndex = noteAbsolute % 12;
   const noteName = NOTES[noteIndex];
 
-  return getNoteDisplay(noteName, useFlats);
+  return getNoteDisplay(noteName, useFlats, useFlatsOverride !== undefined ? (useFlatsOverride ? 'b' : '#') : rootNote.accidental);
 };
