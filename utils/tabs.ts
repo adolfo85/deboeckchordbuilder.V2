@@ -13,10 +13,7 @@ export const getTuningOffsets = (tuningId = 'standard'): number[] =>
 
 export const getTuningStringLabels = (tuningId = 'standard'): string[] => {
   const offsets = getTuningOffsets(tuningId);
-  return offsets.map((midi, i) => {
-    const name = NOTE_NAMES_SHORT[((midi % 12) + 12) % 12];
-    return i === offsets.length - 1 && name === 'E' ? 'e' : name;
-  });
+  return offsets.map(midi => NOTE_NAMES_SHORT[((midi % 12) + 12) % 12]);
 };
 
 /** Durations expressed in 64th-note units. */
@@ -62,13 +59,13 @@ export const cloneScore = (s: TabScore): TabScore => JSON.parse(JSON.stringify(s
 
 // --- LAYOUT ---
 export const LAYOUT = {
-  lineGap: 10,
+  lineGap: 12,
   topMargin: 34,   // room for tempo / measure numbers above the staff
-  staffH: 50,      // 5 gaps * lineGap
-  rhythmH: 44,     // room for stems / beams below the staff
-  stride: 140,     // vertical distance between systems
-  appendW: 30,
-  clefW: 26,
+  staffH: 60,      // 5 gaps * lineGap
+  rhythmH: 46,     // room for stems / beams below the staff
+  stride: 154,     // vertical distance between systems
+  appendW: 32,
+  clefW: 30,
   sigW: 24,
 };
 

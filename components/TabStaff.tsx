@@ -25,24 +25,70 @@ interface TabStaffProps {
 const SANS = "'Inter', sans-serif";
 const SERIF = "'Times New Roman', serif";
 
+/** Crisp engraved vector accidental (♯, ♭, ♮) centered at (x, y). */
+const AccidentalGlyph: React.FC<{ type: '#' | 'b' | 'n'; x: number; y: number; scale?: number }> = ({ type, x, y, scale = 1 }) => {
+  if (type === '#') {
+    return (
+      <g transform={`translate(${x}, ${y}) scale(${scale})`} stroke="#000" strokeLinecap="round">
+        <line x1={-1.8} y1={-6.5} x2={-1.8} y2={6.8} strokeWidth={1.15} />
+        <line x1={1.8} y1={-7.2} x2={1.8} y2={6.1} strokeWidth={1.15} />
+        <line x1={-4} y1={-1.8} x2={4} y2={-3.1} strokeWidth={2.1} />
+        <line x1={-4} y1={2.6} x2={4} y2={1.3} strokeWidth={2.1} />
+      </g>
+    );
+  }
+  if (type === 'b') {
+    return (
+      <g transform={`translate(${x}, ${y}) scale(${scale})`} fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round">
+        <line x1={-2.2} y1={-8.5} x2={-2.2} y2={4.2} strokeWidth={1.35} />
+        <path d="M -2.2 -0.2 C 1.2 -2.4, 3.6 -0.6, 3.2 1.6 C 2.8 3.6, -0.2 4.4, -2.2 4.2" strokeWidth={1.55} />
+      </g>
+    );
+  }
+  // Natural (becuadro)
+  return (
+    <g transform={`translate(${x}, ${y}) scale(${scale})`} stroke="#000" strokeLinecap="round">
+      <line x1={-2.1} y1={-7.2} x2={-2.1} y2={3.2} strokeWidth={1.2} />
+      <line x1={2.1} y1={-3.2} x2={2.1} y2={7.2} strokeWidth={1.2} />
+      <line x1={-2.1} y1={-2.2} x2={2.1} y2={-3.2} strokeWidth={2.1} />
+      <line x1={-2.1} y1={3.2} x2={2.1} y2={2.2} strokeWidth={2.1} />
+    </g>
+  );
+};
+
 const RestGlyph: React.FC<{ ev: TabEvent; cx: number; cy: number }> = ({ ev, cx, cy }) => {
   const flags = flagsOf(ev.duration);
   let glyph: React.ReactNode;
-  if (ev.duration === 'w') glyph = <rect x={cx - 6} y={cy - 6} width={12} height={5} fill="#000" />;
-  else if (ev.duration === 'h') glyph = <rect x={cx - 6} y={cy - 1} width={12} height={5} fill="#000" />;
-  else if (ev.duration === 'q') glyph = <polyline points={`${cx - 3},${cy - 10} ${cx + 3},${cy - 4} ${cx - 3},${cy + 2} ${cx + 3},${cy + 8}`} fill="none" stroke="#000" strokeWidth={2} strokeLinejoin="round" />;
-  else glyph = (
-    <g>
-      <line x1={cx + 3} y1={cy - 9} x2={cx - 3} y2={cy + 9} stroke="#000" strokeWidth={1.6} />
-      {Array.from({ length: flags }).map((_, i) => (
-        <circle key={i} cx={cx + 1 - i * 1.5} cy={cy - 7 + i * 5} r={2} fill="#000" />
-      ))}
-    </g>
-  );
+  if (ev.duration === 'w') glyph = <rect x={cx - 6} y={cy - 6} width={12} height={4.5} fill="#000" />;
+  else if (ev.duration === 'h') glyph = <rect x={cx - 6} y={cy - 1} width={12} height={4.5} fill="#000" />;
+  else if (ev.duration === 'q') {
+    glyph = (
+      <path
+        d={`M ${cx - 2} ${cy - 10} L ${cx + 2.5} ${cy - 4.5} C ${cx + 0.5} ${cy - 2}, ${cx - 2.5} ${cy - 1}, ${cx - 1.5} ${cy + 1.5} L ${cx + 2.5} ${cy + 6} C ${cx - 1} ${cy + 4.5}, ${cx - 3.5} ${cy + 6.5}, ${cx - 0.5} ${cy + 10}`}
+        fill="none"
+        stroke="#000"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    );
+  } else {
+    glyph = (
+      <g>
+        <line x1={cx + 3} y1={cy - 8} x2={cx - 2.5} y2={cy + 9} stroke="#000" strokeWidth={1.5} strokeLinecap="round" />
+        {Array.from({ length: flags }).map((_, i) => (
+          <g key={i}>
+            <circle cx={cx + 0.5 - i * 1.4} cy={cy - 6.5 + i * 4.5} r={2.1} fill="#000" />
+            <path d={`M ${cx + 0.5 - i * 1.4} ${cy - 6.5 + i * 4.5} Q ${cx + 3.5 - i * 1.4} ${cy - 5 + i * 4.5} ${cx + 3 - i * 1.4} ${cy - 8 + i * 4.5}`} fill="none" stroke="#000" strokeWidth={1.3} strokeLinecap="round" />
+          </g>
+        ))}
+      </g>
+    );
+  }
   return (
     <g>
       {glyph}
-      {ev.dotted && <circle cx={cx + 9} cy={cy} r={1.6} fill="#000" />}
+      {ev.dotted && <circle cx={cx + 8.5} cy={cy} r={1.6} fill="#000" />}
     </g>
   );
 };
@@ -328,28 +374,29 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                   {/* Key signature in Standard Notation */}
                   {hasNotation && ml.showKeySig && (() => {
                     const kDef = getKeySig(ml.keySig);
-                    const kStartX = ml.x + (ml.k === 0 ? LAYOUT.clefW : 2);
+                    const kStartX = ml.x + (ml.k === 0 ? LAYOUT.clefW : 4);
                     return (
-                      <g fontFamily={SERIF} fontWeight="bold" fontSize={13} textAnchor="middle" fill="#000">
+                      <g>
                         {kDef.accidentals.map((accItem, accIdx) => {
-                          const accX = kStartX + accIdx * 8 + 4;
+                          const accX = kStartX + accIdx * 8.5 + 4;
                           const accY = notTop + 32 - (accItem.step - 2) * 4;
-                          return (
-                            <text key={`ks-${accIdx}`} x={accX} y={accY + 4.2}>
-                              {accItem.acc === '#' ? '♯' : '♭'}
-                            </text>
-                          );
+                          return <AccidentalGlyph key={`ks-${accIdx}`} type={accItem.acc} x={accX} y={accY} scale={0.92} />;
                         })}
                       </g>
                     );
                   })()}
 
                   {/* TAB clef + tuning labels on first system */}
-                  {ml.k === 0 && ['T', 'A', 'B'].map((ch, i) => (
-                    <text key={ch} x={ml.x + 14} y={staffTop + 17 + i * 14} fontSize={13} fontWeight="bold" textAnchor="middle" fontFamily={SANS} fill="#000">{ch}</text>
-                  ))}
+                  {ml.k === 0 && (
+                    <g>
+                      <rect x={ml.x + 6} y={staffTop + 5} width={16} height={staffH - 10} fill={editable && cursor && cursor.m === ml.index ? '#eef2ff' : '#fff'} />
+                      {['T', 'A', 'B'].map((ch, i) => (
+                        <text key={ch} x={ml.x + 14} y={staffTop + 17 + i * 16} fontSize={13} fontWeight="900" textAnchor="middle" fontFamily={SANS} fill="#000">{ch}</text>
+                      ))}
+                    </g>
+                  )}
                   {si === 0 && ml.k === 0 && tuningLabels.map((lbl, s) => (
-                    <text key={`tl-${s}`} x={ml.x - 4} y={lineY(s) + 3} fontSize={8} fontWeight="bold" textAnchor="end" fontFamily={SANS} fill="#64748b">
+                    <text key={`tl-${s}`} x={ml.x - 5} y={lineY(s) + 3.5} fontSize={8.5} fontWeight="bold" textAnchor="end" fontFamily={SANS} fill="#64748b">
                       {lbl}
                     </text>
                   ))}
@@ -364,9 +411,9 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
 
                   {/* Time signature in Tablatura */}
                   {ml.showTS && (
-                    <g fontFamily={SERIF} fontWeight="bold" fontSize={20} textAnchor="middle" fill="#000">
-                      <text x={tsX} y={staffTop + 22}>{m.timeSig.num}</text>
-                      <text x={tsX} y={staffTop + 44}>{m.timeSig.den}</text>
+                    <g fontFamily={SERIF} fontWeight="bold" fontSize={22} textAnchor="middle" fill="#000">
+                      <text x={tsX} y={staffTop + 27}>{m.timeSig.num}</text>
+                      <text x={tsX} y={staffTop + 51}>{m.timeSig.den}</text>
                     </g>
                   )}
 
@@ -442,8 +489,8 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                       <g>
                         <line x1={rx} y1={yTop} x2={rx} y2={staffBottom} stroke="#000" strokeWidth={2.5} />
                         <line x1={rx + 4} y1={yTop} x2={rx + 4} y2={staffBottom} stroke="#000" strokeWidth={1} />
-                        <circle cx={rx + 8.5} cy={staffTop + 15} r={1.8} fill="#000" />
-                        <circle cx={rx + 8.5} cy={staffTop + 35} r={1.8} fill="#000" />
+                        <circle cx={rx + 8.5} cy={staffTop + 18} r={1.8} fill="#000" />
+                        <circle cx={rx + 8.5} cy={staffTop + 42} r={1.8} fill="#000" />
                         {hasNotation && (
                           <>
                             <circle cx={rx + 8.5} cy={notTop + 12} r={1.6} fill="#000" />
@@ -459,8 +506,8 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                     const yTop = hasNotation ? notTop : staffTop;
                     return (
                       <g>
-                        <circle cx={xEnd - 9.5} cy={staffTop + 15} r={1.8} fill="#000" />
-                        <circle cx={xEnd - 9.5} cy={staffTop + 35} r={1.8} fill="#000" />
+                        <circle cx={xEnd - 9.5} cy={staffTop + 18} r={1.8} fill="#000" />
+                        <circle cx={xEnd - 9.5} cy={staffTop + 42} r={1.8} fill="#000" />
                         {hasNotation && (
                           <>
                             <circle cx={xEnd - 9.5} cy={notTop + 12} r={1.6} fill="#000" />
@@ -605,11 +652,20 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                                         return <g key={`led-${pi}`}>{llines}</g>;
                                       })}
 
-                                      {pitches.map((p, pi) => p.accidental ? (
-                                        <text key={`nacc-${pi}`} x={cx - 10.5} y={p.y + 3.8} fontSize={11} fontFamily={SERIF} fontWeight="bold" textAnchor="middle" fill="#000">
-                                          {p.accidental === '#' ? '♯' : p.accidental === 'b' ? '♭' : '♮'}
-                                        </text>
-                                      ) : null)}
+                                      {/* Accidentals with collision staggering */}
+                                      {(() => {
+                                        const accPitches = pitches.filter(p => p.accidental).sort((a, b) => b.step - a.step);
+                                        const placed: { step: number; col: number }[] = [];
+                                        return accPitches.map((p, pi) => {
+                                          let col = 0;
+                                          while (placed.some(pl => pl.col === col && Math.abs(pl.step - p.step) <= 4)) {
+                                            col++;
+                                          }
+                                          placed.push({ step: p.step, col });
+                                          const ax = cx - 10.5 - col * 7.5;
+                                          return <AccidentalGlyph key={`nacc-${pi}`} type={p.accidental!} x={ax} y={p.y} scale={0.95} />;
+                                        });
+                                      })()}
 
                                       {pitches.map((p, pi) => {
                                         const isHarm = !!ev.harmonics?.[p.stringIdx];
@@ -676,11 +732,11 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                                 else if (isTied || isGhost) lbl = `(${fret})`;
                                 return (
                                   <g key={s}>
-                                    <rect x={cx - fretHalfW(lbl)} y={lineY(s) - 6.5} width={fretHalfW(lbl) * 2} height={13} fill={editable && cursor && cursor.m === ml.index ? '#eef2ff' : '#fff'} />
+                                    <rect x={cx - fretHalfW(lbl)} y={lineY(s) - 5} width={fretHalfW(lbl) * 2} height={10} fill={editable && cursor && cursor.m === ml.index ? '#eef2ff' : '#fff'} />
                                     <text
                                       x={cx}
-                                      y={lineY(s) + 4.2}
-                                      fontSize={isGhost ? 10.5 : 12}
+                                      y={lineY(s) + 3.6}
+                                      fontSize={isGhost ? 9.5 : 10.5}
                                       fontWeight="bold"
                                       textAnchor="middle"
                                       fontFamily={SANS}
@@ -859,7 +915,7 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                               key={s}
                               x={slot.cx - slot.w / 2} y={lineY(s) - lineGap / 2}
                               width={slot.w} height={lineGap}
-                              fill={active ? 'rgba(79,70,229,0.28)' : 'transparent'}
+                              fill={active ? 'rgba(79,70,229,0.16)' : 'transparent'}
                               stroke={active ? '#4f46e5' : 'none'} strokeWidth={1.2} rx={2}
                               style={{ cursor: 'pointer' }}
                               onClick={() => onCursorChange({ m: ml.index, slot: j, string: s })}
