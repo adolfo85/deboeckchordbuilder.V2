@@ -19,7 +19,10 @@ export const TabSnapshot: React.FC<TabSnapshotProps> = ({ data, onDelete, isSele
       style={{ width: TAB_WIDTH + 16 }}
     >
       {data.tab.title && (
-        <div className="font-bold text-lg mb-1 text-black px-1" style={{ fontFamily: "'Times New Roman', serif" }}>{data.tab.title}</div>
+        <div className="font-bold text-lg text-black px-1" style={{ fontFamily: "'Times New Roman', serif" }}>{data.tab.title}</div>
+      )}
+      {data.tab.subtitle && (
+        <div className="text-xs text-slate-500 mb-1 px-1">{data.tab.subtitle}</div>
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}

@@ -57,6 +57,9 @@ export interface TabChordDiagram {
   showDiagram: boolean;
 }
 
+export type BendType = 'half' | 'full' | '1.5' | '2';
+export type HarmonicType = 'natural' | 'pinch';
+
 export interface TabEvent {
   id: string;
   duration: NoteValue;
@@ -70,6 +73,22 @@ export interface TabEvent {
   hammerPull?: boolean[];
   /** Per string: slide / glissando into the next event on the same string. */
   slides?: boolean[];
+  /** Per string: bend amount. */
+  bends?: (BendType | null)[];
+  /** Per string: vibrato. */
+  vibrato?: boolean[];
+  /** Per string: natural (<12>) or pinch/artificial harmonic. */
+  harmonics?: (HarmonicType | null)[];
+  /** Per string: ghost note (soft, parenthesized). */
+  ghost?: boolean[];
+  /** Event-level palm mute (P.M.). */
+  palmMute?: boolean;
+  /** Event-level let ring. */
+  letRing?: boolean;
+  /** Event-level accent (>). */
+  accent?: boolean;
+  /** Event-level staccato (.). */
+  staccato?: boolean;
   /** Per string: accidental override: '#' force sharp, 'b' force flat, 'n' force courtesy natural, null auto */
   accidentals?: ('#' | 'b' | 'n' | null)[];
   /** Irregular group: `actual` notes in the time of `normal` notes of the same written value. */
@@ -83,11 +102,18 @@ export interface TabMeasure {
   timeSig: { num: number; den: number };
   tempo: number;
   keySig?: string;
+  repeatStart?: boolean;
+  repeatEnd?: boolean;
+  repeatCount?: number;
+  ending?: '1.' | '2.' | null;
+  section?: string;
   events: TabEvent[];
 }
 
 export interface TabScore {
   title: string;
+  subtitle?: string;
+  tuningId?: string;
   measuresPerSystem: number;
   showStandardNotation?: boolean;
   staffGap?: number;

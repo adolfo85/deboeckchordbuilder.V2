@@ -1,9 +1,16 @@
 import React from 'react';
-import { TabScore, TabCursor, TabEvent, TabChordDiagram } from '../types';
+import { TabScore, TabCursor, TabEvent, TabChordDiagram, BendType } from '../types';
 import {
   layoutScore, LAYOUT, flagsOf, eventUnits, measureCapacity, measureUsed, beamGroupUnits, STRING_COUNT, tupletLabel, systemMetrics,
-  fretToNotationPitch, DEFAULT_STAFF_GAP, getKeySig
+  fretToNotationPitch, DEFAULT_STAFF_GAP, getKeySig, getTuningStringLabels
 } from '../utils/tabs';
+
+const BEND_LABELS: Record<BendType, string> = {
+  half: '½',
+  full: 'full',
+  '1.5': '1½',
+  '2': '2',
+};
 
 interface TabStaffProps {
   score: TabScore;
@@ -77,6 +84,8 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
   const { systems: metrics, height } = systemMetrics(score);
   const sysStaffTop = (si: number) => metrics[si].top + metrics[si].extra + topMargin;
   const lastIndex = score.measures.length - 1;
+  const tuningId = score.tuningId || 'standard';
+  const tuningLabels = getTuningStringLabels(tuningId);
 
   // Event positions (for ties and articulations across measures / systems)
   const pos: Record<string, { si: number; cx: number }> = {};
@@ -335,9 +344,14 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                     );
                   })()}
 
-                  {/* TAB clef */}
+                  {/* TAB clef + tuning labels on first system */}
                   {ml.k === 0 && ['T', 'A', 'B'].map((ch, i) => (
                     <text key={ch} x={ml.x + 14} y={staffTop + 17 + i * 14} fontSize={13} fontWeight="bold" textAnchor="middle" fontFamily={SANS} fill="#000">{ch}</text>
+                  ))}
+                  {si === 0 && ml.k === 0 && tuningLabels.map((lbl, s) => (
+                    <text key={`tl-${s}`} x={ml.x - 4} y={lineY(s) + 3} fontSize={8} fontWeight="bold" textAnchor="end" fontFamily={SANS} fill="#64748b">
+                      {lbl}
+                    </text>
                   ))}
 
                   {/* Time signature in Standard Notation */}
@@ -376,8 +390,93 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                     </text>
                   )}
 
-                  {/* Measure end barline */}
-                  {isLast ? (
+                  {/* Section marker */}
+                  {m.section && (
+                    <g>
+                      <rect
+                        x={ml.x + 2}
+                        y={(hasNotation ? notTop : staffTop) - 24}
+                        width={Math.max(36, m.section.length * 6.8 + 12)}
+                        height={15}
+                        rx={3}
+                        fill="#0f172a"
+                      />
+                      <text
+                        x={ml.x + 8}
+                        y={(hasNotation ? notTop : staffTop) - 13.5}
+                        fontSize={9.5}
+                        fontWeight="bold"
+                        fontFamily={SANS}
+                        fill="#fff"
+                      >
+                        {m.section}
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Volta Ending (1. / 2.) */}
+                  {m.ending && (
+                    <g stroke="#000" strokeWidth={1.2} fill="none">
+                      <polyline
+                        points={`${ml.x + 2},${(hasNotation ? notTop : staffTop) - 6} ${ml.x + 2},${(hasNotation ? notTop : staffTop) - 18} ${xEnd - 2},${(hasNotation ? notTop : staffTop) - 18}`}
+                      />
+                      <text
+                        x={ml.x + 7}
+                        y={(hasNotation ? notTop : staffTop) - 7}
+                        fontSize={9.5}
+                        fontWeight="bold"
+                        fontFamily={SANS}
+                        fill="#000"
+                        stroke="none"
+                      >
+                        {m.ending}
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Repeat Start barline */}
+                  {m.repeatStart && (() => {
+                    const rx = ml.x + (ml.k === 0 ? LAYOUT.clefW : 0) + (hasNotation ? ml.keySigW : 0) + 2;
+                    const yTop = hasNotation ? notTop : staffTop;
+                    return (
+                      <g>
+                        <line x1={rx} y1={yTop} x2={rx} y2={staffBottom} stroke="#000" strokeWidth={2.5} />
+                        <line x1={rx + 4} y1={yTop} x2={rx + 4} y2={staffBottom} stroke="#000" strokeWidth={1} />
+                        <circle cx={rx + 8.5} cy={staffTop + 15} r={1.8} fill="#000" />
+                        <circle cx={rx + 8.5} cy={staffTop + 35} r={1.8} fill="#000" />
+                        {hasNotation && (
+                          <>
+                            <circle cx={rx + 8.5} cy={notTop + 12} r={1.6} fill="#000" />
+                            <circle cx={rx + 8.5} cy={notTop + 20} r={1.6} fill="#000" />
+                          </>
+                        )}
+                      </g>
+                    );
+                  })()}
+
+                  {/* Measure end barline (or Repeat End) */}
+                  {m.repeatEnd ? (() => {
+                    const yTop = hasNotation ? notTop : staffTop;
+                    return (
+                      <g>
+                        <circle cx={xEnd - 9.5} cy={staffTop + 15} r={1.8} fill="#000" />
+                        <circle cx={xEnd - 9.5} cy={staffTop + 35} r={1.8} fill="#000" />
+                        {hasNotation && (
+                          <>
+                            <circle cx={xEnd - 9.5} cy={notTop + 12} r={1.6} fill="#000" />
+                            <circle cx={xEnd - 9.5} cy={notTop + 20} r={1.6} fill="#000" />
+                          </>
+                        )}
+                        <line x1={xEnd - 5} y1={yTop} x2={xEnd - 5} y2={staffBottom} stroke="#000" strokeWidth={1} />
+                        <line x1={xEnd - 1.5} y1={yTop} x2={xEnd - 1.5} y2={staffBottom} stroke="#000" strokeWidth={2.8} />
+                        {(m.repeatCount ?? 2) > 2 && (
+                          <text x={xEnd - 4} y={yTop - 5} fontSize={9} fontWeight="bold" textAnchor="end" fontFamily={SANS} fill="#000">
+                            ×{m.repeatCount}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })() : isLast ? (
                     <g>
                       <line x1={xEnd - 5} y1={hasNotation ? notTop : staffTop} x2={xEnd - 5} y2={staffBottom} stroke="#000" strokeWidth={1} />
                       <line x1={xEnd - 1.5} y1={hasNotation ? notTop : staffTop} x2={xEnd - 1.5} y2={staffBottom} stroke="#000" strokeWidth={3} />
@@ -387,121 +486,306 @@ export const TabStaff: React.FC<TabStaffProps> = ({ score, width, editable = fal
                   )}
 
                   {/* Events */}
-                  {m.events.map((ev, ei) => {
-                    const cx = ml.slots[ei].cx;
-                    const f = flagsOf(ev.duration);
-                    const inRun = runs.some(r => r.includes(ei) && r.length > 1);
+                  {(() => {
+                    // Precompute standard notation stems for beaming
+                    const notStems: ({ stemX: number; stemY1: number; stemY2: number; stemDown: boolean } | null)[] = m.events.map((ev, ei) => {
+                      if (!hasNotation || ev.rest || ev.duration === 'w') return null;
+                      const keySigId = ml.keySig || score.keySig || 'C';
+                      const pitches: { step: number; y: number }[] = [];
+                      ev.frets.forEach((fr, s) => {
+                        if (fr === null) return;
+                        const override = ev.accidentals?.[s] ?? null;
+                        const { totalStep } = fretToNotationPitch(s, fr, keySigId, override, tuningId);
+                        const y = notTop + 32 - (totalStep - 2) * 4;
+                        pitches.push({ step: totalStep, y });
+                      });
+                      if (!pitches.length) return null;
+                      const cx = ml.slots[ei].cx;
+                      const minY = Math.min(...pitches.map(p => p.y));
+                      const maxY = Math.max(...pitches.map(p => p.y));
+                      const avgStep = pitches.reduce((accP, p) => accP + p.step, 0) / pitches.length;
+                      const stemDown = avgStep >= 6;
+                      return {
+                        stemX: stemDown ? cx - 4.2 : cx + 4.2,
+                        stemY1: stemDown ? minY : maxY,
+                        stemY2: stemDown ? maxY + 22 : minY - 22,
+                        stemDown,
+                      };
+                    });
+
+                    // Align stem ends within each beam run on standard notation
+                    const runStemEnd: Record<number, { y: number; down: boolean }> = {};
+                    if (hasNotation) {
+                      runs.filter(r => r.length > 1).forEach(run => {
+                        const valid = run.map(idx => notStems[idx]).filter(Boolean) as NonNullable<typeof notStems[number]>[];
+                        if (!valid.length) return;
+                        const down = valid.filter(v => v.stemDown).length >= valid.length / 2;
+                        const targetY = down
+                          ? Math.max(...valid.map(v => v.stemY1 + 22))
+                          : Math.min(...valid.map(v => v.stemY1 - 22));
+                        run.forEach(idx => { runStemEnd[idx] = { y: targetY, down }; });
+                      });
+                    }
+
                     return (
-                      <g key={ev.id}>
-                        {/* Standard Notation: Notes, Rests, Ledger Lines, Accidentals, Stems */}
-                        {hasNotation && (
-                          ev.rest ? (
-                            <RestGlyph ev={ev} cx={cx} cy={notTop + 16} />
-                          ) : (() => {
-                            const keySigId = ml.keySig || score.keySig || 'C';
-                            const pitches: { fret: number; stringIdx: number; step: number; accidental: 'b' | '#' | 'n' | null; y: number }[] = [];
-                            ev.frets.forEach((fr, s) => {
-                              if (fr === null) return;
-                              const override = ev.accidentals?.[s] ?? null;
-                              const { totalStep, accidental } = fretToNotationPitch(s, fr, keySigId, override);
-                              const y = notTop + 32 - (totalStep - 2) * 4;
-                              pitches.push({ fret: fr, stringIdx: s, step: totalStep, accidental, y });
-                            });
-                            if (!pitches.length) return null;
-
-                            const minY = Math.min(...pitches.map(p => p.y));
-                            const maxY = Math.max(...pitches.map(p => p.y));
-                            const avgStep = pitches.reduce((accP, p) => accP + p.step, 0) / pitches.length;
-                            const stemDown = avgStep >= 6;
-                            const stemX = stemDown ? cx - 4.2 : cx + 4.2;
-                            const stemY1 = stemDown ? minY : maxY;
-                            const stemY2 = stemDown ? maxY + 24 : minY - 24;
-
-                            return (
-                              <g key={`not-ev-${ev.id}`}>
-                                {/* Ledger lines: ONLY drawn when note is on or beyond that line! */}
-                                {pitches.map((p, pi) => {
-                                  const llines: React.ReactNode[] = [];
-                                  if (p.step <= 0) {
-                                    // Low notes below staff: line 1 E4 is step 2, space D4 is step 1.
-                                    // Step 0 = middle C (1st ledger line below), -2 = A3 (2nd ledger line), etc.
-                                    for (let ls = 0; ls >= p.step; ls -= 2) {
-                                      const ly = notTop + 32 - (ls - 2) * 4;
-                                      llines.push(<line key={`nled-${pi}-${ls}`} x1={cx - 7.5} y1={ly} x2={cx + 7.5} y2={ly} stroke="#000" strokeWidth={1.2} />);
-                                    }
-                                  } else if (p.step >= 12) {
-                                    // High notes above staff: line 5 F5 is step 10, space G5 is step 11.
-                                    // Step 12 = A5 (1st ledger line above), 14 = C6 (2nd ledger line), etc.
-                                    for (let ls = 12; ls <= p.step; ls += 2) {
-                                      const ly = notTop + 32 - (ls - 2) * 4;
-                                      llines.push(<line key={`nled-${pi}-${ls}`} x1={cx - 7.5} y1={ly} x2={cx + 7.5} y2={ly} stroke="#000" strokeWidth={1.2} />);
-                                    }
-                                  }
-                                  return <g key={`led-${pi}`}>{llines}</g>;
-                                })}
-
-                                {/* Accidentals (supports Sharp, Flat, and Courtesy Natural) */}
-                                {pitches.map((p, pi) => p.accidental ? (
-                                  <text key={`nacc-${pi}`} x={cx - 10.5} y={p.y + 3.8} fontSize={11} fontFamily={SERIF} fontWeight="bold" textAnchor="middle" fill="#000">
-                                    {p.accidental === '#' ? '♯' : p.accidental === 'b' ? '♭' : '♮'}
-                                  </text>
-                                ) : null)}
-
-                                {/* Noteheads */}
-                                {pitches.map((p, pi) => (
-                                  <g key={`nhead-${pi}`}>
-                                    {ev.duration === 'w' ? (
-                                      <ellipse cx={cx} cy={p.y} rx={4.6} ry={3.2} fill="none" stroke="#000" strokeWidth={1.4} transform={`rotate(-20 ${cx} ${p.y})`} />
-                                    ) : ev.duration === 'h' ? (
-                                      <ellipse cx={cx} cy={p.y} rx={4.4} ry={3} fill="none" stroke="#000" strokeWidth={1.4} transform={`rotate(-20 ${cx} ${p.y})`} />
-                                    ) : (
-                                      <ellipse cx={cx} cy={p.y} rx={4.4} ry={3} fill="#000" transform={`rotate(-20 ${cx} ${p.y})`} />
-                                    )}
-                                    {ev.dotted && <circle cx={cx + 7.5} cy={p.y} r={1.6} fill="#000" />}
-                                  </g>
-                                ))}
-
-                                {/* Stem on standard staff */}
-                                {ev.duration !== 'w' && (
-                                  <line x1={stemX} y1={stemY1} x2={stemX} y2={stemY2} stroke="#000" strokeWidth={1.2} />
+                      <>
+                        {/* Palm Mute span */}
+                        {(() => {
+                          const pmNodes: React.ReactNode[] = [];
+                          let i = 0;
+                          while (i < m.events.length) {
+                            if (!m.events[i].palmMute) { i++; continue; }
+                            let j = i;
+                            while (j + 1 < m.events.length && m.events[j + 1].palmMute) j++;
+                            const x1 = ml.slots[i].cx - 6;
+                            const x2 = ml.slots[j].cx + 8;
+                            const py = staffTop - 7;
+                            pmNodes.push(
+                              <g key={`pm-${i}`}>
+                                <text x={x1} y={py} fontSize={8.5} fontWeight="bold" fontStyle="italic" fontFamily={SANS} fill="#000">P.M.</text>
+                                {x2 > x1 + 22 && (
+                                  <line x1={x1 + 20} y1={py - 3} x2={x2} y2={py - 3} stroke="#000" strokeWidth={1} strokeDasharray="3 2" />
                                 )}
                               </g>
                             );
-                          })()
-                        )}
+                            i = j + 1;
+                          }
+                          return pmNodes;
+                        })()}
 
-                        {/* Fret numbers on Tablatura */}
-                        {!ev.rest && ev.frets.map((fret, s) => {
-                          if (fret === null) return null;
-                          const lbl = tiedIn(ml.index, ei, s, fret) ? `(${fret})` : String(fret);
+                        {m.events.map((ev, ei) => {
+                          const cx = ml.slots[ei].cx;
+                          const f = flagsOf(ev.duration);
+                          const inRun = runs.some(r => r.includes(ei) && r.length > 1);
+                          const hasBend = ev.bends?.some(Boolean);
+                          const hasVib = ev.vibrato?.some(Boolean);
+
                           return (
-                            <g key={s}>
-                              <rect x={cx - fretHalfW(lbl)} y={lineY(s) - 6.5} width={fretHalfW(lbl) * 2} height={13} fill={editable && cursor && cursor.m === ml.index ? '#eef2ff' : '#fff'} />
-                              <text x={cx} y={lineY(s) + 4.2} fontSize={12} fontWeight="bold" textAnchor="middle" fontFamily={SANS} fill="#000">{lbl}</text>
+                            <g key={ev.id}>
+                              {/* Standard Notation */}
+                              {hasNotation && (
+                                ev.rest ? (
+                                  <RestGlyph ev={ev} cx={cx} cy={notTop + 16} />
+                                ) : (() => {
+                                  const keySigId = ml.keySig || score.keySig || 'C';
+                                  const pitches: { fret: number; stringIdx: number; step: number; accidental: 'b' | '#' | 'n' | null; y: number }[] = [];
+                                  ev.frets.forEach((fr, s) => {
+                                    if (fr === null) return;
+                                    const override = ev.accidentals?.[s] ?? null;
+                                    const { totalStep, accidental } = fretToNotationPitch(s, fr, keySigId, override, tuningId);
+                                    const y = notTop + 32 - (totalStep - 2) * 4;
+                                    pitches.push({ fret: fr, stringIdx: s, step: totalStep, accidental, y });
+                                  });
+                                  if (!pitches.length) return null;
+
+                                  const st = notStems[ei];
+                                  const aligned = runStemEnd[ei];
+                                  const stemDown = aligned ? aligned.down : (st?.stemDown ?? false);
+                                  const stemX = stemDown ? cx - 4.2 : cx + 4.2;
+                                  const minY = Math.min(...pitches.map(p => p.y));
+                                  const maxY = Math.max(...pitches.map(p => p.y));
+                                  const stemY1 = stemDown ? minY : maxY;
+                                  const stemY2 = aligned ? aligned.y : (stemDown ? maxY + 22 : minY - 22);
+
+                                  return (
+                                    <g key={`not-ev-${ev.id}`}>
+                                      {pitches.map((p, pi) => {
+                                        const llines: React.ReactNode[] = [];
+                                        if (p.step <= 0) {
+                                          for (let ls = 0; ls >= p.step; ls -= 2) {
+                                            const ly = notTop + 32 - (ls - 2) * 4;
+                                            llines.push(<line key={`nled-${pi}-${ls}`} x1={cx - 7.5} y1={ly} x2={cx + 7.5} y2={ly} stroke="#000" strokeWidth={1.2} />);
+                                          }
+                                        } else if (p.step >= 12) {
+                                          for (let ls = 12; ls <= p.step; ls += 2) {
+                                            const ly = notTop + 32 - (ls - 2) * 4;
+                                            llines.push(<line key={`nled-${pi}-${ls}`} x1={cx - 7.5} y1={ly} x2={cx + 7.5} y2={ly} stroke="#000" strokeWidth={1.2} />);
+                                          }
+                                        }
+                                        return <g key={`led-${pi}`}>{llines}</g>;
+                                      })}
+
+                                      {pitches.map((p, pi) => p.accidental ? (
+                                        <text key={`nacc-${pi}`} x={cx - 10.5} y={p.y + 3.8} fontSize={11} fontFamily={SERIF} fontWeight="bold" textAnchor="middle" fill="#000">
+                                          {p.accidental === '#' ? '♯' : p.accidental === 'b' ? '♭' : '♮'}
+                                        </text>
+                                      ) : null)}
+
+                                      {pitches.map((p, pi) => {
+                                        const isHarm = !!ev.harmonics?.[p.stringIdx];
+                                        if (isHarm) {
+                                          return (
+                                            <g key={`nhead-${pi}`}>
+                                              <polygon
+                                                points={`${cx},${p.y - 3.6} ${cx + 4.5},${p.y} ${cx},${p.y + 3.6} ${cx - 4.5},${p.y}`}
+                                                fill={ev.duration === 'w' || ev.duration === 'h' ? 'none' : '#000'}
+                                                stroke="#000"
+                                                strokeWidth={1.3}
+                                              />
+                                              {ev.dotted && <circle cx={cx + 7.5} cy={p.y} r={1.6} fill="#000" />}
+                                            </g>
+                                          );
+                                        }
+                                        return (
+                                          <g key={`nhead-${pi}`}>
+                                            {ev.duration === 'w' ? (
+                                              <ellipse cx={cx} cy={p.y} rx={4.6} ry={3.2} fill="none" stroke="#000" strokeWidth={1.4} transform={`rotate(-20 ${cx} ${p.y})`} />
+                                            ) : ev.duration === 'h' ? (
+                                              <ellipse cx={cx} cy={p.y} rx={4.4} ry={3} fill="none" stroke="#000" strokeWidth={1.4} transform={`rotate(-20 ${cx} ${p.y})`} />
+                                            ) : (
+                                              <ellipse cx={cx} cy={p.y} rx={4.4} ry={3} fill="#000" transform={`rotate(-20 ${cx} ${p.y})`} />
+                                            )}
+                                            {ev.dotted && <circle cx={cx + 7.5} cy={p.y} r={1.6} fill="#000" />}
+                                          </g>
+                                        );
+                                      })}
+
+                                      {ev.duration !== 'w' && (
+                                        <>
+                                          <line x1={stemX} y1={stemY1} x2={stemX} y2={stemY2} stroke="#000" strokeWidth={1.2} />
+                                          {f > 0 && !inRun && Array.from({ length: f }).map((_, fi) => {
+                                            const dir = stemDown ? -1 : 1;
+                                            const fy = stemY2 + dir * fi * 4.5;
+                                            return (
+                                              <path
+                                                key={`nf-${fi}`}
+                                                d={`M ${stemX} ${fy} Q ${stemX + 6} ${fy + dir * 3} ${stemX + 5} ${fy + dir * 8}`}
+                                                fill="none"
+                                                stroke="#000"
+                                                strokeWidth={1.5}
+                                                strokeLinecap="round"
+                                              />
+                                            );
+                                          })}
+                                        </>
+                                      )}
+                                    </g>
+                                  );
+                                })()
+                              )}
+
+                              {/* Fret numbers on Tablatura */}
+                              {!ev.rest && ev.frets.map((fret, s) => {
+                                if (fret === null) return null;
+                                const isTied = tiedIn(ml.index, ei, s, fret);
+                                const harm = ev.harmonics?.[s];
+                                const isGhost = ev.ghost?.[s];
+                                let lbl = String(fret);
+                                if (harm === 'natural') lbl = `<${fret}>`;
+                                else if (harm === 'pinch') lbl = `[${fret}]`;
+                                else if (isTied || isGhost) lbl = `(${fret})`;
+                                return (
+                                  <g key={s}>
+                                    <rect x={cx - fretHalfW(lbl)} y={lineY(s) - 6.5} width={fretHalfW(lbl) * 2} height={13} fill={editable && cursor && cursor.m === ml.index ? '#eef2ff' : '#fff'} />
+                                    <text
+                                      x={cx}
+                                      y={lineY(s) + 4.2}
+                                      fontSize={isGhost ? 10.5 : 12}
+                                      fontWeight="bold"
+                                      textAnchor="middle"
+                                      fontFamily={SANS}
+                                      fill={isGhost ? '#475569' : '#000'}
+                                    >
+                                      {lbl}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+
+                              {/* Bend mark above tab staff */}
+                              {!ev.rest && hasBend && (() => {
+                                const bType = ev.bends!.find(Boolean)!;
+                                const topS = ev.frets.reduce((best, fr, s) => (fr !== null && ev.bends?.[s] ? s : best), -1);
+                                if (topS < 0) return null;
+                                const bx = cx + 5;
+                                const byStart = lineY(topS) - 2;
+                                const byTop = staffTop - 11;
+                                return (
+                                  <g key={`bend-${ev.id}`} fill="none" stroke="#000" strokeWidth={1.2}>
+                                    <path d={`M ${bx} ${byStart} Q ${bx + 7} ${(byStart + byTop) / 2} ${bx + 6} ${byTop}`} />
+                                    <polyline points={`${bx + 3.5},${byTop + 3} ${bx + 6},${byTop} ${bx + 8.5},${byTop + 3}`} />
+                                    <text x={bx + 6} y={byTop - 2} fontSize={8} fontWeight="bold" textAnchor="middle" fontFamily={SANS} fill="#000" stroke="none">
+                                      {BEND_LABELS[bType]}
+                                    </text>
+                                  </g>
+                                );
+                              })()}
+
+                              {/* Vibrato wavy line above tab staff */}
+                              {!ev.rest && hasVib && (
+                                <path
+                                  d={`M ${cx - 8} ${staffTop - 5} q 2 -3 4 0 t 4 0 t 4 0 t 4 0`}
+                                  fill="none"
+                                  stroke="#000"
+                                  strokeWidth={1.3}
+                                  strokeLinecap="round"
+                                />
+                              )}
+
+                              {/* Event-level Let Ring / Accent / Staccato */}
+                              {!ev.rest && ev.letRing && (
+                                <text x={cx} y={staffTop - 5} fontSize={7.5} fontStyle="italic" textAnchor="middle" fontFamily={SANS} fill="#334155">
+                                  ring
+                                </text>
+                              )}
+                              {!ev.rest && ev.accent && (
+                                <polyline points={`${cx - 4},${staffBottom + 2} ${cx + 4},${staffBottom + 4.5} ${cx - 4},${staffBottom + 7}`} fill="none" stroke="#000" strokeWidth={1.3} />
+                              )}
+                              {!ev.rest && ev.staccato && (
+                                <circle cx={cx} cy={staffBottom + 4.5} r={1.8} fill="#000" />
+                              )}
+
+                              {/* Rhythm below Tablatura */}
+                              {ev.rest ? (
+                                <RestGlyph ev={ev} cx={cx} cy={staffBottom + 22} />
+                              ) : (
+                                <g>
+                                  {ev.duration === 'w' ? (
+                                    <ellipse cx={cx} cy={staffBottom + 22} rx={5} ry={3.4} fill="none" stroke="#000" strokeWidth={1.4} />
+                                  ) : (
+                                    <line x1={cx} y1={stemTop} x2={cx} y2={stemEnd} stroke="#000" strokeWidth={1.3} />
+                                  )}
+                                  {ev.duration === 'h' && <ellipse cx={cx} cy={stemEnd + 2} rx={4} ry={2.8} fill="none" stroke="#000" strokeWidth={1.3} />}
+                                  {f > 0 && !inRun && Array.from({ length: f }).map((_, i) => (
+                                    <line key={i} x1={cx} y1={stemEnd - i * 4} x2={cx + 6} y2={stemEnd - i * 4 - 6} stroke="#000" strokeWidth={1.6} />
+                                  ))}
+                                  {ev.dotted && <circle cx={cx + 7} cy={ev.duration === 'w' ? staffBottom + 22 : stemEnd - 2} r={1.6} fill="#000" />}
+                                </g>
+                              )}
                             </g>
                           );
                         })}
 
-                        {/* Rhythm below Tablatura */}
-                        {ev.rest ? (
-                          <RestGlyph ev={ev} cx={cx} cy={staffBottom + 22} />
-                        ) : (
-                          <g>
-                            {ev.duration === 'w' ? (
-                              <ellipse cx={cx} cy={staffBottom + 22} rx={5} ry={3.4} fill="none" stroke="#000" strokeWidth={1.4} />
-                            ) : (
-                              <line x1={cx} y1={stemTop} x2={cx} y2={stemEnd} stroke="#000" strokeWidth={1.3} />
-                            )}
-                            {ev.duration === 'h' && <ellipse cx={cx} cy={stemEnd + 2} rx={4} ry={2.8} fill="none" stroke="#000" strokeWidth={1.3} />}
-                            {f > 0 && !inRun && Array.from({ length: f }).map((_, i) => (
-                              <line key={i} x1={cx} y1={stemEnd - i * 4} x2={cx + 6} y2={stemEnd - i * 4 - 6} stroke="#000" strokeWidth={1.6} />
-                            ))}
-                            {ev.dotted && <circle cx={cx + 7} cy={ev.duration === 'w' ? staffBottom + 22 : stemEnd - 2} r={1.6} fill="#000" />}
-                          </g>
-                        )}
-                      </g>
+                        {/* Standard Notation Beams */}
+                        {hasNotation && runs.filter(r => r.length > 1).map((run, ri) => {
+                          const els: React.ReactNode[] = [];
+                          const info = runStemEnd[run[0]];
+                          if (!info) return null;
+                          const dir = info.down ? -1 : 1;
+                          for (let level = 1; level <= 3; level++) {
+                            const y = info.y + dir * (level - 1) * 3.8;
+                            run.forEach((ei, pos) => {
+                              const has = flagsOf(m.events[ei].duration) >= level;
+                              if (!has) return;
+                              const x = (info.down ? ml.slots[ei].cx - 4.2 : ml.slots[ei].cx + 4.2);
+                              const nextEi = run[pos + 1];
+                              const prevEi = run[pos - 1];
+                              const nextHas = nextEi !== undefined && flagsOf(m.events[nextEi].duration) >= level;
+                              const prevHas = prevEi !== undefined && flagsOf(m.events[prevEi].duration) >= level;
+                              if (nextHas) {
+                                const nxX = (info.down ? ml.slots[nextEi].cx - 4.2 : ml.slots[nextEi].cx + 4.2);
+                                els.push(<line key={`nb-${ri}-${level}-${pos}`} x1={x} y1={y} x2={nxX} y2={y} stroke="#000" strokeWidth={2.4} />);
+                              } else if (!prevHas) {
+                                const stubDir = nextEi !== undefined ? 1 : -1;
+                                els.push(<line key={`ns-${ri}-${level}-${pos}`} x1={x} y1={y} x2={x + stubDir * 5.5} y2={y} stroke="#000" strokeWidth={2.4} />);
+                              }
+                            });
+                          }
+                          return <g key={`nrun-${ri}`}>{els}</g>;
+                        })}
+                      </>
                     );
-                  })}
+                  })()}
 
                   {/* Chord symbols / diagrams */}
                   {m.events.map((ev, ei) => ev.chord ? (

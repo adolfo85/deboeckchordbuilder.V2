@@ -1,9 +1,23 @@
 import { NoteValue, TabEvent, TabMeasure, TabScore } from '../types';
+import { TUNINGS } from './theory';
 
 export const STRING_COUNT = 6;
 export const MAX_FRET = 24;
 /** Width (px) of a tab block, both in the editor and in the exported document. */
 export const TAB_WIDTH = 700;
+
+const NOTE_NAMES_SHORT = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+export const getTuningOffsets = (tuningId = 'standard'): number[] =>
+  (TUNINGS[tuningId] || TUNINGS['standard']).offsets;
+
+export const getTuningStringLabels = (tuningId = 'standard'): string[] => {
+  const offsets = getTuningOffsets(tuningId);
+  return offsets.map((midi, i) => {
+    const name = NOTE_NAMES_SHORT[((midi % 12) + 12) % 12];
+    return i === offsets.length - 1 && name === 'E' ? 'e' : name;
+  });
+};
 
 /** Durations expressed in 64th-note units. */
 export const NOTE_VALUES: { id: NoteValue; name: string; units: number; flags: number }[] = [
@@ -249,7 +263,7 @@ export const layoutScore = (score: TabScore, width: number, editable: boolean): 
       const keySigW = showKeySig ? Math.max(keyDef.count, prevKeySig ? getKeySig(prevKeySig).count : 0) * 8 + 6 : 0;
       const showTS = !prev || prev.timeSig.num !== m.timeSig.num || prev.timeSig.den !== m.timeSig.den;
       const showTempo = !prev || prev.tempo !== m.tempo;
-      const lead = (k === 0 ? LAYOUT.clefW : 0) + (score.showStandardNotation ? keySigW : 0) + (showTS ? LAYOUT.sigW : 0) + 10;
+      const lead = (k === 0 ? LAYOUT.clefW : 0) + (score.showStandardNotation ? keySigW : 0) + (showTS ? LAYOUT.sigW : 0) + (m.repeatStart ? 10 : 0) + 10;
       const naturals = m.events.map(e => 26 + Math.sqrt(eventUnits(e)) * 8);
       if (editable) naturals.push(LAYOUT.appendW);
       const sum = naturals.length ? naturals.reduce((a, b) => a + b, 0) : 60;
@@ -331,15 +345,15 @@ const PITCH_CLASSES_FLAT: { step: number; acc: 'b' | null }[] = [
   { step: 6, acc: null }, // B
 ];
 
-const STRING_OFFSETS = [40, 45, 50, 55, 59, 64]; // E2, A2, D3, G3, B3, E4
-
 export const fretToNotationPitch = (
   stringIdx: number,
   fret: number,
   keySigId = 'C',
-  accidentalOverride?: '#' | 'b' | 'n' | null
+  accidentalOverride?: '#' | 'b' | 'n' | null,
+  tuningId = 'standard'
 ): NotationPitch => {
-  const acousticMidi = STRING_OFFSETS[stringIdx] + fret;
+  const offsets = getTuningOffsets(tuningId);
+  const acousticMidi = (offsets[stringIdx] ?? 40) + fret;
   const writtenMidi = acousticMidi + 12; // Guitar treble notation sounds an octave lower than written
   const pc = ((writtenMidi % 12) + 12) % 12;
   const oct = Math.floor(writtenMidi / 12) - 1;
@@ -373,7 +387,7 @@ export const fretToNotationPitch = (
   return { totalStep, accidental: renderAcc };
 };
 
-/** Vertical position of each system; systems with chords or standard notation above the staff are taller. */
+/** Vertical position of each system; systems with chords, techniques, sections, or standard notation above the staff are taller. */
 export const systemMetrics = (score: TabScore): { systems: { top: number; extra: number; hasDiagram: boolean }[]; height: number } => {
   const per = Math.max(1, score.measuresPerSystem);
   const staffGap = score.staffGap ?? DEFAULT_STAFF_GAP;
@@ -383,12 +397,20 @@ export const systemMetrics = (score: TabScore): { systems: { top: number; extra:
   for (let start = 0; start < score.measures.length; start += per) {
     let extra = notationExtra;
     let hasDiagram = false;
-    score.measures.slice(start, start + per).forEach(m => m.events.forEach(e => {
-      if (e.chord) {
-        if (e.chord.showDiagram) hasDiagram = true;
-        extra = Math.max(extra, notationExtra + (e.chord.showDiagram ? CHORD_DIAGRAM_H : CHORD_NAME_H));
-      }
-    }));
+    let hasTopMarks = false;
+    score.measures.slice(start, start + per).forEach(m => {
+      if (m.section || m.ending) hasTopMarks = true;
+      m.events.forEach(e => {
+        if (e.palmMute || e.letRing || e.bends?.some(Boolean) || e.vibrato?.some(Boolean)) hasTopMarks = true;
+        if (e.chord) {
+          if (e.chord.showDiagram) hasDiagram = true;
+          extra = Math.max(extra, notationExtra + (e.chord.showDiagram ? CHORD_DIAGRAM_H : CHORD_NAME_H));
+        }
+      });
+    });
+    if (hasTopMarks && !score.showStandardNotation) {
+      extra = Math.max(extra, 18);
+    }
     systems.push({ top, extra, hasDiagram });
     top += LAYOUT.stride + extra;
   }
@@ -541,4 +563,117 @@ export const removeTuplet = (score: TabScore, mi: number, id: string): TabScore 
     ...m.events.slice(first + group.length),
   ];
   return { ...score, measures: score.measures.map((x, i) => (i === mi ? { ...x, events } : x)) };
+};
+
+/** Inserts a new rest event at `slot` (before existing event at `slot`). */
+export const insertEventAt = (score: TabScore, mi: number, slot: number, duration: NoteValue, dotted: boolean): TabScore => {
+  const m = score.measures[mi];
+  if (!m) return score;
+  const ev = createEvent(duration, dotted, true);
+  const events = [...m.events];
+  events.splice(Math.min(slot, events.length), 0, ev);
+  return { ...score, measures: score.measures.map((x, i) => (i === mi ? { ...x, events } : x)) };
+};
+
+/** Duplicates measure `mi` right after itself with fresh IDs. */
+export const duplicateMeasure = (score: TabScore, mi: number): TabScore => {
+  const src = score.measures[mi];
+  if (!src) return score;
+  const copy: TabMeasure = {
+    ...JSON.parse(JSON.stringify(src)),
+    id: uid(),
+    events: src.events.map(e => ({ ...JSON.parse(JSON.stringify(e)), id: uid() })),
+  };
+  const measures = [...score.measures];
+  measures.splice(mi + 1, 0, copy);
+  return { ...score, measures };
+};
+
+/** Clears all events in measure `mi`. */
+export const clearMeasure = (score: TabScore, mi: number): TabScore => ({
+  ...score,
+  measures: score.measures.map((m, i) => (i === mi ? { ...m, events: [] } : m)),
+});
+
+/** Fills any remaining capacity of measure `mi` with aligned rests. */
+export const fillMeasureWithRests = (score: TabScore, mi: number): TabScore => {
+  const m = score.measures[mi];
+  if (!m) return score;
+  const used = measureUsed(m);
+  const cap = measureCapacity(m.timeSig);
+  if (used >= cap - 0.001) return score;
+  const rests = fillRests(used, cap - used);
+  if (!rests.length) return score;
+  return {
+    ...score,
+    measures: score.measures.map((x, i) => (i === mi ? { ...x, events: [...x.events, ...rests] } : x)),
+  };
+};
+
+/** Exports the entire TabScore to clean, readable ASCII tablature. */
+export const exportScoreToAsciiTab = (score: TabScore): string => {
+  const labels = getTuningStringLabels(score.tuningId);
+  const per = Math.max(1, score.measuresPerSystem);
+  const lines: string[] = [];
+  if (score.title) lines.push(score.title);
+  if (score.subtitle) lines.push(score.subtitle);
+  const tuningDef = TUNINGS[score.tuningId || 'standard'] || TUNINGS['standard'];
+  lines.push(`Afinación: ${tuningDef.name} | Tempo: ${score.measures[0]?.tempo ?? 120} BPM`);
+  lines.push('');
+
+  for (let start = 0; start < score.measures.length; start += per) {
+    const chunk = score.measures.slice(start, start + per);
+    const chordRow: string[] = [];
+    const stringRows: string[][] = Array.from({ length: STRING_COUNT }, (_, s) => [
+      `${labels[STRING_COUNT - 1 - s].padEnd(2, ' ')}|`,
+    ]);
+
+    let chordCursor = 3; // matches `${label}|`
+    chunk.forEach((m, k) => {
+      if (m.repeatStart) {
+        stringRows.forEach(r => r.push(':'));
+        chordCursor += 1;
+      }
+      if (m.events.length === 0) {
+        stringRows.forEach(r => r.push('----'));
+        chordCursor += 4;
+      } else {
+        m.events.forEach(ev => {
+          const cells = Array.from({ length: STRING_COUNT }, (_, idx) => {
+            const s = STRING_COUNT - 1 - idx;
+            if (ev.rest || ev.frets[s] === null) return '-';
+            const f = ev.frets[s]!;
+            let token = String(f);
+            if (ev.harmonics?.[s] === 'natural') token = `<${f}>`;
+            else if (ev.ghost?.[s]) token = `(${f})`;
+            if (ev.bends?.[s]) token += 'b';
+            else if (ev.hammerPull?.[s]) token += 'h';
+            else if (ev.slides?.[s]) token += '/';
+            else if (ev.vibrato?.[s]) token += '~';
+            return token;
+          });
+          const maxLen = Math.max(1, ...cells.map(c => c.length));
+          const colW = maxLen + 2;
+
+          if (ev.chord?.name) {
+            while (chordRow.join('').length < chordCursor) chordRow.push(' ');
+            chordRow.push(ev.chord.name);
+          }
+
+          cells.forEach((c, idx) => {
+            stringRows[idx].push('-' + c.padEnd(maxLen + 1, '-'));
+          });
+          chordCursor += colW;
+        });
+      }
+      const barEnd = m.repeatEnd ? ':|' : (start + k === score.measures.length - 1 ? '||' : '|');
+      stringRows.forEach(r => r.push(barEnd));
+      chordCursor += barEnd.length;
+    });
+
+    if (chordRow.length) lines.push(chordRow.join(''));
+    stringRows.forEach(r => lines.push(r.join('')));
+    lines.push('');
+  }
+  return lines.join('\n');
 };

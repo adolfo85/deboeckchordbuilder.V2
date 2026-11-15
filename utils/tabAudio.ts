@@ -1,5 +1,5 @@
-import { TabScore, TabEvent } from '../types';
-import { eventUnits } from './tabs';
+import { TabScore, TabEvent, BendType, HarmonicType } from '../types';
+import { eventUnits, measureCapacity } from './tabs';
 import { getNoteAtPosition } from './theory';
 
 export type PlaybackArticulation = 'legato' | 'ring' | 'staccato';
@@ -7,6 +7,9 @@ export type PlaybackArticulation = 'legato' | 'ring' | 'staccato';
 export interface TabPlaybackOptions {
   articulation?: PlaybackArticulation;
   volume?: number;
+  speed?: number;
+  metronome?: boolean;
+  loopMeasure?: number | null;
 }
 
 export interface TabPlaybackController {
@@ -85,9 +88,31 @@ function createRoomReverb(ctx: AudioContext, duration = 1.2, decay = 2.8): Convo
   return convolver;
 }
 
+function playMetronomeClick(ctx: AudioContext, time: number, accented: boolean, masterGain: GainNode) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(accented ? 1200 : 880, time);
+  osc.frequency.exponentialRampToValueAtTime(accented ? 600 : 440, time + 0.035);
+  gain.gain.setValueAtTime(0.0001, time);
+  gain.gain.linearRampToValueAtTime(accented ? 0.24 : 0.14, time + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(time);
+  osc.stop(time + 0.05);
+}
+
+const BEND_SEMITONES: Record<BendType, number> = {
+  half: 1,
+  full: 2,
+  '1.5': 3,
+  '2': 4,
+};
+
 /**
  * Synthesizes a single guitar voice with warm acoustic timbre, rich body resonance,
- * and precise articulation duration (Legato = full note duration).
+ * and expressive guitar techniques (bends, vibrato, palm mute, harmonics, ghost notes).
  */
 function playGuitarVoice(
   ctx: AudioContext,
@@ -99,75 +124,117 @@ function playGuitarVoice(
   isHammer: boolean,
   hasSlide: boolean,
   slideTargetFreq: number | null,
+  bend: BendType | null,
+  hasVibrato: boolean,
+  harmonic: HarmonicType | null,
+  isGhost: boolean,
+  isPalmMute: boolean,
+  isAccent: boolean,
+  isStaccato: boolean,
+  isLetRing: boolean,
   dryGainNode: GainNode,
   wetGainNode: GainNode,
   guitarWave: PeriodicWave
 ) {
-  // Determine sounding duration based on articulation:
-  // - legato: 100% full nominal duration, holding tone continuously into next note or rest.
-  // - ring: lets string ring out naturally (up to 3.2s) unless superseded.
-  // - staccato: crisp 45% duration.
+  let effectiveArt = articulation;
+  if (isStaccato) effectiveArt = 'staccato';
+  else if (isLetRing) effectiveArt = 'ring';
+
   let activeDuration = voiceDurationSec;
-  if (articulation === 'staccato') {
+  if (isPalmMute) {
+    activeDuration = Math.max(0.06, Math.min(0.28, voiceDurationSec * 0.42));
+  } else if (effectiveArt === 'staccato') {
     activeDuration = Math.max(0.08, voiceDurationSec * 0.45);
-  } else if (articulation === 'ring') {
+  } else if (effectiveArt === 'ring') {
     activeDuration = Math.max(voiceDurationSec, Math.min(3.2, voiceDurationSec * 2.2));
   }
 
-  const attackTime = isHammer ? 0.016 : 0.005;
-  const peakVol = 0.22;
-  const sustainVol = peakVol * 0.78; // 0.17: strong, warm sustain
+  const effectiveFreq = harmonic === 'natural' ? freq * 2 : harmonic === 'pinch' ? freq * 3 : freq;
+  const attackTime = isHammer ? 0.016 : harmonic ? 0.012 : 0.005;
+  const velScale = (isGhost ? 0.38 : 1.0) * (isAccent ? 1.35 : 1.0) * (isPalmMute ? 0.85 : 1.0);
+  const peakVol = 0.22 * velScale;
+  const sustainVol = peakVol * 0.78;
 
-  // Smooth release window at the end to prevent digital clicks while sounding legato
   const releaseTime = Math.min(0.026, activeDuration * 0.18);
   const sustainEndTime = Math.max(startTime + attackTime + 0.03, startTime + activeDuration - releaseTime);
   const stopTime = startTime + activeDuration;
 
-  // 1. Primary harmonic oscillator
   const osc = ctx.createOscillator();
-  osc.setPeriodicWave(guitarWave);
-  osc.frequency.setValueAtTime(freq, startTime);
+  if (harmonic) {
+    osc.type = 'sine';
+  } else {
+    osc.setPeriodicWave(guitarWave);
+  }
+  osc.frequency.setValueAtTime(effectiveFreq, startTime);
 
-  // 2. Secondary detuned oscillator for natural string chorus and acoustic depth (+2.5 cents)
   const oscChorus = ctx.createOscillator();
   oscChorus.type = 'triangle';
-  oscChorus.frequency.setValueAtTime(freq, startTime);
+  oscChorus.frequency.setValueAtTime(effectiveFreq, startTime);
   oscChorus.detune.setValueAtTime(2.5, startTime);
   const chorusGain = ctx.createGain();
-  chorusGain.gain.setValueAtTime(0.18, startTime);
+  chorusGain.gain.setValueAtTime(harmonic ? 0.08 : 0.18, startTime);
   oscChorus.connect(chorusGain);
 
-  // 3. Slide pitch bend if active
+  // Slide pitch bend
   if (hasSlide && slideTargetFreq !== null) {
     const slideStart = startTime + nominalDurationSec * 0.45;
     const slideEnd = startTime + nominalDurationSec * 0.95;
-    osc.frequency.setValueAtTime(freq, slideStart);
+    osc.frequency.setValueAtTime(effectiveFreq, slideStart);
     osc.frequency.exponentialRampToValueAtTime(slideTargetFreq, slideEnd);
-    oscChorus.frequency.setValueAtTime(freq, slideStart);
+    oscChorus.frequency.setValueAtTime(effectiveFreq, slideStart);
     oscChorus.frequency.exponentialRampToValueAtTime(slideTargetFreq, slideEnd);
   }
 
-  // 4. Acoustic guitar body resonance filter (peaking around 210 Hz)
+  // String Bend
+  if (bend && BEND_SEMITONES[bend]) {
+    const semitones = BEND_SEMITONES[bend];
+    const targetFreq = effectiveFreq * Math.pow(2, semitones / 12);
+    const bendStart = startTime + Math.min(0.06, nominalDurationSec * 0.2);
+    const bendPeak = startTime + Math.min(nominalDurationSec * 0.65, 0.35);
+    osc.frequency.setValueAtTime(effectiveFreq, bendStart);
+    osc.frequency.exponentialRampToValueAtTime(targetFreq, bendPeak);
+    oscChorus.frequency.setValueAtTime(effectiveFreq, bendStart);
+    oscChorus.frequency.exponentialRampToValueAtTime(targetFreq, bendPeak);
+  }
+
+  // Vibrato LFO
+  let lfo: OscillatorNode | null = null;
+  if (hasVibrato && activeDuration > 0.12) {
+    lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(5.6, startTime);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.setValueAtTime(0, startTime);
+    lfoGain.gain.linearRampToValueAtTime(20, startTime + Math.min(0.12, activeDuration * 0.3));
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.detune);
+    lfoGain.connect(oscChorus.detune);
+    lfo.start(startTime);
+    lfo.stop(stopTime + 0.05);
+  }
+
   const bodyFilter = ctx.createBiquadFilter();
   bodyFilter.type = 'peaking';
   bodyFilter.frequency.setValueAtTime(210, startTime);
   bodyFilter.Q.setValueAtTime(1.3, startTime);
-  bodyFilter.gain.setValueAtTime(3.0, startTime); // +3dB wooden body warmth
+  bodyFilter.gain.setValueAtTime(isPalmMute ? 1.0 : 3.0, startTime);
 
-  // 5. Dynamic lowpass filter (starts open for attack sparkle, settles into warm sustain)
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
-  const initialCutoff = Math.min(7000, Math.max(1800, freq * 7));
-  const sustainCutoff = Math.min(3600, Math.max(1000, freq * 3));
+  const initialCutoff = isPalmMute
+    ? Math.min(1400, Math.max(600, effectiveFreq * 2.5))
+    : Math.min(7000, Math.max(1800, effectiveFreq * 7));
+  const sustainCutoff = isPalmMute
+    ? 650
+    : Math.min(3600, Math.max(1000, effectiveFreq * 3));
   filter.frequency.setValueAtTime(initialCutoff, startTime);
   filter.frequency.exponentialRampToValueAtTime(
     sustainCutoff,
-    startTime + Math.min(activeDuration, 0.7)
+    startTime + Math.min(activeDuration, isPalmMute ? 0.14 : 0.7)
   );
 
-  // 6. Pluck transient (finger/pick impact noise)
-  if (!isHammer && ctx.sampleRate) {
-    const bufferSize = Math.floor(ctx.sampleRate * 0.01); // 10ms
+  if (!isHammer && !harmonic && ctx.sampleRate) {
+    const bufferSize = Math.floor(ctx.sampleRate * 0.01);
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const channel = noiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
@@ -179,11 +246,11 @@ function playGuitarVoice(
 
     const noiseFilter = ctx.createBiquadFilter();
     noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.setValueAtTime(2400, startTime);
+    noiseFilter.frequency.setValueAtTime(isPalmMute ? 1100 : 2400, startTime);
     noiseFilter.Q.setValueAtTime(1.6, startTime);
 
     const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.04, startTime);
+    noiseGain.gain.setValueAtTime(0.04 * velScale, startTime);
     noiseGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.01);
 
     noiseSource.connect(noiseFilter);
@@ -194,21 +261,16 @@ function playGuitarVoice(
     noiseSource.stop(startTime + 0.012);
   }
 
-  // 7. Voice Volume Envelope (ADSR)
   const voiceGain = ctx.createGain();
   voiceGain.gain.setValueAtTime(0.0001, startTime);
   voiceGain.gain.linearRampToValueAtTime(peakVol, startTime + attackTime);
   voiceGain.gain.exponentialRampToValueAtTime(sustainVol, startTime + attackTime + 0.05);
 
-  // Slow natural acoustic decay across sustain (note remains singing and audible for full duration)
-  const endSustainVol = sustainVol * Math.max(0.55, Math.exp(-0.25 * (activeDuration / 1.0)));
+  const endSustainVol = sustainVol * Math.max(isPalmMute ? 0.2 : 0.55, Math.exp(-0.25 * (activeDuration / 1.0)));
   voiceGain.gain.setValueAtTime(sustainVol, startTime + attackTime + 0.05);
   voiceGain.gain.linearRampToValueAtTime(endSustainVol, sustainEndTime);
-
-  // Anti-click smooth release to finish exactly on the beat
   voiceGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
 
-  // Connect routing
   osc.connect(filter);
   chorusGain.connect(filter);
   filter.connect(bodyFilter);
@@ -243,15 +305,64 @@ export const startTabPlayback = (
 
   const articulation: PlaybackArticulation = options?.articulation || score.playbackArticulation || 'legato';
   const masterVolume = Math.max(0, Math.min(1.5, options?.volume ?? 1.0));
+  const speed = Math.max(0.25, Math.min(2.0, options?.speed ?? 1.0));
+  const tuningId = score.tuningId || 'standard';
+  const metronome = !!options?.metronome;
+  const loopMeasure = options?.loopMeasure ?? null;
 
-  // 1. Build flat list of all playable events from startFrom
+  // Build measure playback order (handles loopMeasure or repeatStart/repeatEnd/endings)
+  const measureOrder: number[] = [];
+  if (loopMeasure !== null && score.measures[loopMeasure]) {
+    // Schedule 16 loops of the single measure for practice
+    for (let r = 0; r < 16; r++) measureOrder.push(loopMeasure);
+  } else {
+    let mi = startFrom.m;
+    let lastRepeatStart = 0;
+    const repeatDone: Record<number, number> = {};
+    let guard = 0;
+    while (mi < score.measures.length && guard < 256) {
+      guard++;
+      const m = score.measures[mi];
+      if (m.repeatStart) lastRepeatStart = mi;
+      const pass = repeatDone[mi] ?? 0;
+      if (m.ending === '1.' && pass > 0) {
+        mi++;
+        continue;
+      }
+      measureOrder.push(mi);
+      if (m.repeatEnd) {
+        const targetRepeats = (m.repeatCount ?? 2) - 1;
+        const count = repeatDone[mi] ?? 0;
+        if (count < targetRepeats) {
+          repeatDone[mi] = count + 1;
+          mi = lastRepeatStart;
+          continue;
+        }
+      }
+      mi++;
+    }
+  }
+
+  // 1. Build flat list of all playable events & metronome clicks
   const timeline: ScheduledEvent[] = [];
+  const metronomeClicks: { timeSec: number; accented: boolean }[] = [];
   let totalTime = 0;
 
-  for (let mi = startFrom.m; mi < score.measures.length; mi++) {
+  measureOrder.forEach((mi, orderIdx) => {
     const m = score.measures[mi];
-    const tempo = m.tempo || 120;
-    const startSlot = mi === startFrom.m ? startFrom.slot : 0;
+    const tempo = (m.tempo || 120) * speed;
+    const startSlot = orderIdx === 0 && loopMeasure === null ? startFrom.slot : 0;
+
+    // Schedule metronome clicks for this measure
+    if (metronome && m.events.length > 0) {
+      const beatUnits = 64 / m.timeSig.den;
+      const mUnits = m.events.slice(startSlot).reduce((a, e) => a + eventUnits(e), 0);
+      const beats = Math.max(1, Math.round(mUnits / beatUnits));
+      for (let b = 0; b < beats; b++) {
+        const clickTime = totalTime + ((b * beatUnits) / 16) * (60 / tempo);
+        metronomeClicks.push({ timeSec: clickTime, accented: b === 0 });
+      }
+    }
 
     for (let ei = startSlot; ei < m.events.length; ei++) {
       const ev = m.events[ei];
@@ -274,7 +385,7 @@ export const startTabPlayback = (
 
       totalTime += durSec;
     }
-  }
+  });
 
   if (timeline.length === 0) {
     onFinished();
@@ -314,25 +425,27 @@ export const startTabPlayback = (
 
   const startTime = ctx.currentTime + 0.08;
 
-  // 2. Schedule all audio events
+  // 2. Schedule metronome clicks & audio events
+  metronomeClicks.forEach(mc => {
+    playMetronomeClick(ctx, startTime + mc.timeSec, mc.accented, masterGain);
+  });
+
   timeline.forEach((item, itemIdx) => {
     const eventAudioTime = startTime + item.timeSec;
     const { ev, durationSec, nextEv } = item;
 
     if (!ev.rest) {
-      // Collect playable notes on this event
       const notesToPlay: { s: number; fret: number }[] = [];
       ev.frets.forEach((fret, s) => {
         if (fret === null) return;
-        if (isTiedFromPrev(itemIdx, s, fret)) return; // Sustained voice from earlier tie
+        if (isTiedFromPrev(itemIdx, s, fret)) return;
         notesToPlay.push({ s, fret });
       });
 
       notesToPlay.forEach(({ s, fret }, noteOrderIdx) => {
-        const noteInfo = getNoteAtPosition(s, fret, 'standard');
+        const noteInfo = getNoteAtPosition(s, fret, tuningId);
         const freq = 440 * Math.pow(2, (noteInfo.absolute - 69) / 12);
 
-        // Calculate total tied duration: accumulate consecutive tied events with matching fret on string s
         let voiceDuration = durationSec;
         let curIdx = itemIdx;
         while (timeline[curIdx]?.ev.ties?.[s]) {
@@ -342,14 +455,12 @@ export const startTabPlayback = (
           curIdx++;
         }
 
-        // Slight strumming offset if multiple strings in a chord (6ms per string for human touch)
         const strumOffset = notesToPlay.length > 1 ? noteOrderIdx * 0.006 : 0;
         const noteStartTime = eventAudioTime + strumOffset;
 
-        // Slide target frequency if slide active
         let slideTargetFreq: number | null = null;
         if (ev.slides?.[s] && nextEv && nextEv.frets[s] !== null) {
-          const nextNote = getNoteAtPosition(s, nextEv.frets[s]!, 'standard');
+          const nextNote = getNoteAtPosition(s, nextEv.frets[s]!, tuningId);
           slideTargetFreq = 440 * Math.pow(2, (nextNote.absolute - 69) / 12);
         }
 
@@ -363,6 +474,14 @@ export const startTabPlayback = (
           !!ev.hammerPull?.[s],
           !!ev.slides?.[s],
           slideTargetFreq,
+          ev.bends?.[s] ?? null,
+          !!ev.vibrato?.[s],
+          ev.harmonics?.[s] ?? null,
+          !!ev.ghost?.[s],
+          !!ev.palmMute,
+          !!ev.accent,
+          !!ev.staccato,
+          !!ev.letRing,
           dryGain,
           wetGain,
           guitarWave

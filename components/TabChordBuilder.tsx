@@ -1,25 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { NoteData, TabChordDiagram } from '../types';
 import { detectChordName, getNoteAtPosition, getNoteDisplay } from '../utils/theory';
+import { getTuningStringLabels } from '../utils/tabs';
 
 interface TabChordBuilderProps {
   /** True when the cursor sits on a figure the chord can be attached to. */
   hasTarget: boolean;
   /** Chord already attached to the selected figure, if any. */
   attached?: TabChordDiagram;
+  tuningId?: string;
+  currentEventFrets?: (number | null)[];
   onInsert: (chord: TabChordDiagram) => void;
+  onWriteFretsToTab?: (frets: (number | null)[]) => void;
   onRemove: () => void;
 }
 
 const FRETS_SHOWN = 5;
-const STRING_LABELS = ['E', 'A', 'D', 'G', 'B', 'e'];
 const GUTTER = 46;
 const COL_W = 38;
 const ROW_H = 22;
 const HEAD_H = 16;
 
 /** Small independent fretboard (max. 5 frets) to build a chord and its American chord symbol for the tab. */
-export const TabChordBuilder: React.FC<TabChordBuilderProps> = ({ hasTarget, attached, onInsert, onRemove }) => {
+export const TabChordBuilder: React.FC<TabChordBuilderProps> = ({
+  hasTarget, attached, tuningId = 'standard', currentEventFrets, onInsert, onWriteFretsToTab, onRemove
+}) => {
   const [frets, setFrets] = useState<(number | null)[]>([null, null, null, null, null, null]);
   const [baseFret, setBaseFret] = useState(1);
   const [rootString, setRootString] = useState<number | null>(null);
@@ -28,22 +33,19 @@ export const TabChordBuilder: React.FC<TabChordBuilderProps> = ({ hasTarget, att
   const [nameOverride, setNameOverride] = useState<string | null>(null);
   const [showDiagram, setShowDiagram] = useState(true);
 
+  const STRING_LABELS = getTuningStringLabels(tuningId);
+
   // --- Derived chord data ---
   const notes: NoteData[] = [];
   frets.forEach((f, s) => {
     if (f === null) return;
-    const n = getNoteAtPosition(s, f);
+    const n = getNoteAtPosition(s, f, tuningId);
     notes.push({ stringIndex: s, fretNumber: f, note: n.note, octave: n.octave, absoluteSemitone: n.absolute, isRoot: false, accidental: flats ? 'b' : '#' });
   });
   const effRootString = rootString !== null && notes.some(n => n.stringIndex === rootString) ? rootString : (notes[0]?.stringIndex ?? null);
   const root = notes.find(n => n.stringIndex === effRootString);
   const detected = root ? detectChordName(root, notes, flats) : null;
   const name = nameOverride !== null ? nameOverride : (detected ?? '');
-
-  // Keep the visible window in sync when notes fall outside it
-  useEffect(() => {
-    // no-op: the user controls the window explicitly with the arrows
-  }, []);
 
   const toggleCell = (s: number, fret: number) => {
     if (rootMode) {
@@ -64,10 +66,24 @@ export const TabChordBuilder: React.FC<TabChordBuilderProps> = ({ hasTarget, att
     setRootString(null);
   };
 
+  const captureFromTab = () => {
+    if (!currentEventFrets) return;
+    const nonZero = currentEventFrets.filter((f): f is number => f !== null && f > 0);
+    const minNonZero = nonZero.length ? Math.min(...nonZero) : 1;
+    setBaseFret(Math.max(1, Math.min(20, minNonZero)));
+    setFrets([...currentEventFrets]);
+    setRootString(null);
+    setNameOverride(null);
+  };
+
   const canInsert = hasTarget && (name.trim() !== '' || notes.length > 0);
   const insert = () => {
     if (!canInsert) return;
     onInsert({ name: name.trim(), frets: [...frets], baseFret, showDiagram: showDiagram && notes.length > 0 });
+  };
+  const applyFretsOnly = () => {
+    if (!onWriteFretsToTab || notes.length === 0) return;
+    onWriteFretsToTab([...frets]);
   };
 
   const width = GUTTER + FRETS_SHOWN * COL_W + 8;
@@ -78,7 +94,18 @@ export const TabChordBuilder: React.FC<TabChordBuilderProps> = ({ hasTarget, att
   const off = 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700';
 
   return (
-    <div className="flex flex-wrap items-start gap-4">
+    <div className="flex flex-col gap-3">
+      {/* Quick capture from tab */}
+      {currentEventFrets && currentEventFrets.some(f => f !== null) && (
+        <button
+          onClick={captureFromTab}
+          className="w-full py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-indigo-300 transition-colors"
+          title="Importa las notas de la columna actual en el diapasón y detecta el acorde"
+        >
+          ↓ Capturar notas desde la tablatura
+        </button>
+      )}
+
       {/* Mini fretboard */}
       <div>
         <svg width={width} height={height} className="select-none bg-slate-800 rounded-lg border border-slate-700">
@@ -149,10 +176,18 @@ export const TabChordBuilder: React.FC<TabChordBuilderProps> = ({ hasTarget, att
           <input type="checkbox" checked={showDiagram} onChange={e => setShowDiagram(e.target.checked)} className="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0" />
           Mostrar diagrama (si no, solo el cifrado)
         </label>
-        <button onClick={insert} disabled={!canInsert}
-          className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold disabled:opacity-40 transition-colors shadow-md">
-          Insertar sobre la figura seleccionada
-        </button>
+        <div className="flex flex-col gap-1.5">
+          <button onClick={insert} disabled={!canInsert}
+            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold disabled:opacity-40 transition-colors shadow-md">
+            Insertar cifrado/diagrama
+          </button>
+          {onWriteFretsToTab && (
+            <button onClick={applyFretsOnly} disabled={notes.length === 0}
+              className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold disabled:opacity-40 transition-colors">
+              Escribir notas en la tablatura
+            </button>
+          )}
+        </div>
         {!hasTarget && <span className="text-[11px] text-amber-400">Seleccioná una figura en la tablatura para anclar el acorde.</span>}
         {attached && (
           <div className="flex gap-1 mt-1">

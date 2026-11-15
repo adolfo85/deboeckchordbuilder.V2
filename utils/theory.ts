@@ -6,7 +6,14 @@ export const NOTES: NoteName[] = [
 ];
 
 export const TUNINGS: Record<string, TuningDefinition> = {
-  'standard': { id: 'standard', name: 'Guitarra Estándar (E A D G B E)', offsets: [40, 45, 50, 55, 59, 64], stringCount: 6 },
+  'standard': { id: 'standard', name: 'Estándar (E A D G B E)', offsets: [40, 45, 50, 55, 59, 64], stringCount: 6 },
+  'drop-d': { id: 'drop-d', name: 'Drop D (D A D G B E)', offsets: [38, 45, 50, 55, 59, 64], stringCount: 6 },
+  'eb-standard': { id: 'eb-standard', name: 'Eb Estándar (Eb Ab Db Gb Bb Eb)', offsets: [39, 44, 49, 54, 58, 63], stringCount: 6 },
+  'd-standard': { id: 'd-standard', name: 'D Estándar (D G C F A D)', offsets: [38, 43, 48, 53, 57, 62], stringCount: 6 },
+  'drop-c': { id: 'drop-c', name: 'Drop C (C G C F A D)', offsets: [36, 43, 48, 53, 57, 62], stringCount: 6 },
+  'dadgad': { id: 'dadgad', name: 'DADGAD (D A D G A D)', offsets: [38, 45, 50, 55, 57, 62], stringCount: 6 },
+  'open-g': { id: 'open-g', name: 'Open G (D G D G B D)', offsets: [38, 43, 50, 55, 59, 62], stringCount: 6 },
+  'open-d': { id: 'open-d', name: 'Open D (D A D F# A D)', offsets: [38, 45, 50, 54, 57, 62], stringCount: 6 },
 };
 
 const FLATS_MAP: Record<string, string> = {
@@ -24,7 +31,7 @@ export const getNoteDisplay = (note: string, useFlats: boolean, specificAccident
 };
 
 export const getNoteAtPosition = (stringIndex: number, fret: number, tuningId: string = 'standard'): { note: NoteName, absolute: number, octave: number } => {
-  const tuning = TUNINGS['standard'];
+  const tuning = TUNINGS[tuningId] || TUNINGS['standard'];
   const safeIndex = Math.min(stringIndex, tuning.offsets.length - 1);
   const openStringAbsolute = tuning.offsets[safeIndex];
 
